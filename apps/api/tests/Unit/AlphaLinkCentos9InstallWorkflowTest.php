@@ -89,6 +89,9 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
 
         $this->assertSame([
             'DNS record management is unavailable for example.test; retaining the selected hostname and checking its public HTTPS route independently. DNS updates may be skipped.',
+            'MANUAL DNS REQUIRED for example.test: add these records without changing unrelated records.',
+            'DNS A example.test -> 8.8.8.8',
+            'Pending manual DNS records are available on the external domain record page.',
             'External DNS for example.test does not point to the selected IPs; no provider records will be changed.',
             'Setup Host', 'Configured PMTA host identity example.test', 'End Setting Host',
             'Removing Old Packages', 'End Removing Old Packages',
@@ -539,12 +542,28 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         ], $dnsWrites);
     }
 
-    public function test_multi_domain_tracking_install_routes_probe_and_pushes_dns_for_all_domains(): void
+    public function test_multi_domain_install_continues_without_assignment_dns_and_keeps_domains_pending(): void
     {
         [$workflow, $gate, $pmta, $completion, , $assignmentDnsWriter, $assignmentDkimIdentities, $multiDomainDnsVerifier] = $this->workflow();
         $gate->method('evaluate')->willReturn(['installation_authorized' => true]);
         $pmta->expects($this->once())->method('run');
-        $completion->expects($this->once())->method('finalize')->willReturn([]);
+        $completion->expects($this->once())->method('finalize')->willReturnCallback(function (...$arguments): array {
+            $this->assertFalse($arguments[5]['https']);
+            $this->assertSame('198.51.100.30', $arguments[8]);
+            $this->assertFalse($arguments[9]);
+            foreach ($arguments[3] as $ip) {
+                $this->assertFalse($ip['dns_verified']);
+                $this->assertFalse($ip['authentication_verified']);
+                $this->assertFalse($ip['tracking_https_ready']);
+                foreach ($ip['domains'] as $assignment) {
+                    $this->assertFalse($assignment['dns_verified']);
+                    $this->assertFalse($assignment['authentication_verified']);
+                    $this->assertFalse($assignment['tracking_https_ready']);
+                }
+            }
+
+            return [];
+        });
         $assignmentDnsWriter->method('isAssignmentDomainAvailable')->willReturnCallback(
             static fn (SendingDomain $domain): bool => $domain->name === 'zonevortex.example.test',
         );
@@ -573,9 +592,18 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
                     'is_active' => true,
                 ]);
             });
-        $multiDomainDnsVerifier->expects($this->once())->method('verifyForwardAddresses');
-        $multiDomainDnsVerifier->expects($this->once())->method('verifyMailAuthentication');
-        $multiDomainDnsVerifier->expects($this->once())->method('verify');
+        $multiDomainDnsVerifier->expects($this->once())
+            ->method('inspectReadiness')
+            ->willReturnCallback(static fn (array $assignments): array => array_map(static fn (array $assignment): array => [
+                'domain_id' => (string) $assignment['domain_id'],
+                'source_ip' => (string) $assignment['source_ip'],
+                'ip' => (string) $assignment['ip'],
+                'hostname' => (string) $assignment['hostname'],
+                'tracking_host' => (string) $assignment['tracking_host'],
+                'dns_verified' => false,
+                'authentication_verified' => false,
+                'missing_address_hosts' => [(string) $assignment['tracking_host']],
+            ], $assignments));
 
         $workspace = (new Workspace)->forceFill(['id' => 'workspace-one']);
         $server = (new ManagedServer)->forceFill([
@@ -642,7 +670,9 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->assertContains('TXT:al2._domainkey.seek', $secondaryHosts);
         $this->assertContains('TXT:_dmarc.seek', $secondaryHosts);
         $this->assertContains('TXT:seek', $secondaryHosts);
-        $this->assertContains('Provider-managed DNS is managed manually; no provider records will be changed for zenovara.example.test. Existing public records will be verified before any server changes.', $logs);
+        $this->assertStringNotContainsString('certbot --apache', implode("\n", $session->commands));
+        $this->assertTrue(collect($logs)->contains(fn (string $line): bool => str_contains($line, 'continuing installation without domain HTTPS')));
+        $this->assertContains('Provider-managed DNS is managed manually; no provider records will be changed for zenovara.example.test. Missing DNS records will remain pending while server setup continues.', $logs);
     }
 
     public function test_tracking_https_uses_the_selected_subdomain_without_requiring_dns_provider_access(): void

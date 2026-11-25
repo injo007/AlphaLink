@@ -91,6 +91,9 @@ class AlphaLinkCentos9ReinstallWorkflow
         $hasMultipleDomainsPerIp = collect($rows)->contains(static fn (array $row): bool => ! empty($row['domains']));
         $assignmentPlan = null;
         $pmtaSigningIdentities = [];
+        $assignmentReadinessByKey = [];
+        $trackingHttpsReadyByHost = [];
+        $allAssignmentAddressesReady = true;
         if ($hasMultipleDomainsPerIp) {
             if (! $options['pmta'] || ! $options['tracking'] || ! $options['https'] || ! $options['spf'] || ! $options['dkim'] || ! $options['dmarc']) {
                 throw new RuntimeException('Multi-domain reinstall requires HTTPS tracking and SPF, DKIM, and DMARC to be enabled.');
@@ -197,6 +200,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                 $physicalIp = collect($rows)->firstWhere('ip', $assignment['ip']);
                 $publicAssignments[] = [
                     ...$assignment,
+                    'source_ip' => (string) $assignment['ip'],
                     'ip' => $publicIp,
                     'ehlo_hostname' => (string) $physicalIp['ehlo_hostname'],
                 ];
@@ -246,19 +250,35 @@ class AlphaLinkCentos9ReinstallWorkflow
 
                     continue;
                 }
-                $this->domainRecords->runAssignments(
-                    $selectedDomain,
-                    $records,
-                    [...$options, 'clean_dns' => false],
-                    $this->assignmentDnsWriter,
-                    $log,
-                    $additionalARecords,
-                );
+                try {
+                    $this->domainRecords->runAssignments(
+                        $selectedDomain,
+                        $records,
+                        [...$options, 'clean_dns' => false],
+                        $this->assignmentDnsWriter,
+                        $log,
+                        $additionalARecords,
+                    );
+                } catch (RuntimeException $exception) {
+                    $log('DNS provider updates did not finish for '.$selectedDomain->name.'; continuing server reinstall and checking public DNS readiness: '.$exception->getMessage());
+                }
             }
-            $this->multiDomainDnsVerifier->verifyForwardAddresses($publicAssignments);
-            $this->multiDomainDnsVerifier->verifyMailAuthentication($publicAssignments, $options);
-            $mainDomainProviderReady = true;
-            $log('Verified public sending, tracking, and EHLO DNS plus SPF, DKIM, and DMARC before reinstall changes');
+            $assignmentReadiness = $this->multiDomainDnsVerifier->inspectReadiness($publicAssignments, $options);
+            $allAssignmentAddressesReady = true;
+            foreach ($assignmentReadiness as $readiness) {
+                $key = $readiness['source_ip'].'|'.$readiness['hostname'];
+                $assignmentReadinessByKey[$key] = $readiness;
+                $allAssignmentAddressesReady = $allAssignmentAddressesReady && $readiness['dns_verified'];
+                if (! $readiness['dns_verified']) {
+                    $log('A/AAAA DNS is pending for '.implode(', ', $readiness['missing_address_hosts']).'; continuing reinstall without domain HTTPS for this multi-domain setup.');
+                } elseif (! $readiness['authentication_verified']) {
+                    $log('SPF, DKIM, or DMARC TXT records are pending for '.$readiness['hostname'].'; reinstall continues, but this domain will remain unavailable for sending.');
+                }
+            }
+            $mainDomainProviderReady = $allAssignmentAddressesReady;
+            if (! $allAssignmentAddressesReady) {
+                $log('Domain HTTPS will be skipped until every sending, tracking, and EHLO A/AAAA record resolves to its selected IP.');
+            }
         } elseif (! $mainDomain->is_our) {
             $log('External DNS is managed manually; reinstall will not call its DNS provider.');
         }
@@ -464,15 +484,16 @@ class AlphaLinkCentos9ReinstallWorkflow
 
         if ($options['https'] || $options['pmta']) {
             $log($options['https'] && $mainDomainProviderReady ? 'Re Setup Https' : 'Re Setup HTTPS for PMTA Web Monitor');
-            if ($monitorDomain !== null && ! $this->firewall->prepareDomainCertificatePorts($session)) {
+            $certificateDomain = $assignmentPlan !== null && ! $allAssignmentAddressesReady ? null : $monitorDomain;
+            if ($assignmentPlan !== null && ! $allAssignmentAddressesReady) {
+                $log('Skipping domain HTTPS because assignment A/AAAA records are not ready; PMTA monitoring will use the AlphaLink proxy or IP fallback.');
+            }
+            if ($certificateDomain !== null && ! $this->firewall->prepareDomainCertificatePorts($session)) {
                 $log('The host firewall could not confirm HTTP/HTTPS access before domain certificate issuance; the PMTA monitor may fall back to the AlphaLink HTTPS proxy.');
             }
-            $domainCertificateReady = $this->https->run($session, $monitorDomain, $mainDomainProviderReady ? $subdomains : []);
-            if ($monitorDomain !== null && ! $domainCertificateReady) {
+            $domainCertificateReady = $this->https->run($session, $certificateDomain, $mainDomainProviderReady ? $subdomains : []);
+            if ($certificateDomain !== null && ! $domainCertificateReady) {
                 $log('The selected domain certificate was not issued; check public DNS and inbound HTTP port 80 before retrying.');
-            }
-            if ($assignmentPlan !== null && ! $domainCertificateReady) {
-                throw new RuntimeException('Multi-domain reinstall could not verify an HTTPS certificate for all tracking hosts.');
             }
             if ($options['pmta']) {
                 $pmtaMonitorHttps = $this->https->configurePmtaMonitor(
@@ -537,32 +558,42 @@ class AlphaLinkCentos9ReinstallWorkflow
         );
         $log('End Setting Firewall');
 
-        if ($options['tracking'] && $options['https'] && $domainCertificateReady) {
-            if ($assignmentPlan !== null) {
-                $trackingHttpsReady = true;
-                foreach ($assignmentPlan['tracking_hosts'] as $assignmentTrackingHost) {
-                    if (! $this->tracking->verifyHttps($session, $assignmentTrackingHost)) {
-                        throw new RuntimeException('HTTPS tracking verification failed for assignment host '.$assignmentTrackingHost.'.');
-                    }
+        if ($assignmentPlan !== null) {
+            foreach ($assignmentPlan['tracking_hosts'] as $assignmentTrackingHost) {
+                $ready = $domainCertificateReady
+                    && $this->tracking->verifyHttps($session, $assignmentTrackingHost);
+                $trackingHttpsReadyByHost[$assignmentTrackingHost] = $ready;
+                if (! $ready) {
+                    $log('HTTPS tracking remains pending for '.$assignmentTrackingHost.'; reinstall continues and the domain cannot be used for sending yet.');
                 }
-                $this->multiDomainDnsVerifier->verify($publicAssignments, $options);
-                foreach ($rows as &$row) {
-                    $row['dns_verified'] = true;
-                    $row['authentication_verified'] = true;
-                    $row['tracking_https_ready'] = true;
-                    foreach ($row['domains'] as &$additional) {
-                        $additional['dns_verified'] = true;
-                        $additional['authentication_verified'] = true;
-                        $additional['tracking_https_ready'] = true;
-                    }
-                    unset($additional);
+            }
+            foreach ($rows as &$row) {
+                $primaryHostname = strtolower(($row['sub'] !== '' ? $row['sub'].'.' : '').$row['domain']);
+                $primaryReadiness = $assignmentReadinessByKey[$row['ip'].'|'.$primaryHostname] ?? null;
+                $primaryTrackingHost = (string) ($row['tracking_host'] ?? '');
+                $row['dns_verified'] = (bool) ($primaryReadiness['dns_verified'] ?? false);
+                $row['authentication_verified'] = (bool) ($primaryReadiness['authentication_verified'] ?? false);
+                $row['tracking_https_ready'] = $row['dns_verified']
+                    && (bool) ($trackingHttpsReadyByHost[$primaryTrackingHost] ?? false);
+                if (! empty($row['main'])) {
+                    $trackingHttpsReady = $row['tracking_https_ready'];
                 }
-                unset($row);
-            } else {
-                $trackingHttpsReady = $this->tracking->verifyHttps($session, $monitorDomain);
-                if (! $trackingHttpsReady) {
-                    $log('Tracking HTTPS did not pass its public health and redirect checks; tracked campaign sends require repair before use.');
+                foreach ($row['domains'] as &$additional) {
+                    $hostname = strtolower(($additional['sub'] !== '' ? $additional['sub'].'.' : '').$additional['domain']);
+                    $readiness = $assignmentReadinessByKey[$row['ip'].'|'.$hostname] ?? null;
+                    $trackingHost = (string) ($additional['tracking_host'] ?? '');
+                    $additional['dns_verified'] = (bool) ($readiness['dns_verified'] ?? false);
+                    $additional['authentication_verified'] = (bool) ($readiness['authentication_verified'] ?? false);
+                    $additional['tracking_https_ready'] = $additional['dns_verified']
+                        && (bool) ($trackingHttpsReadyByHost[$trackingHost] ?? false);
                 }
+                unset($additional);
+            }
+            unset($row);
+        } elseif ($options['tracking'] && $options['https'] && $domainCertificateReady) {
+            $trackingHttpsReady = $this->tracking->verifyHttps($session, $monitorDomain);
+            if (! $trackingHttpsReady) {
+                $log('Tracking HTTPS did not pass its public health and redirect checks; tracked campaign sends require repair before use.');
             }
         }
 

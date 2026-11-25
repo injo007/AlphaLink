@@ -495,14 +495,14 @@ class AlphaLinkServerReinstallTest extends TestCase
         $hostPreparation->shouldReceive('configureHost')->once()->withArgs(
             fn (AlphaLinkFailClosedInstallerTransport $transport, string $ip, string $domain): bool => $ip === '192.0.2.23'
                 && $domain === $this->firstDomain->name,
-        );
+        )->andReturn($this->firstDomain->name);
         $serviceSetup = Mockery::mock(AlphaLinkCentos9ServiceSetup::class);
         $serviceSetup->shouldReceive('run')->once()->with(Mockery::type(AlphaLinkFailClosedInstallerTransport::class));
         $domainWriter = Mockery::mock(AlphaLinkBulkInstallDomainDnsRecordWriter::class);
         $domainWriter->shouldReceive('isDomainAvailable')->once()->withArgs(
             fn (SendingDomain $domain): bool => $domain->is($this->firstDomain),
         )->andReturn(true);
-        $domainWriter->shouldReceive('setHosts')->twice()->withArgs(function (SendingDomain $domain, array $records): bool {
+        $domainWriter->shouldReceive('setHosts')->once()->withArgs(function (SendingDomain $domain, array $records): bool {
             return ($domain->is($this->firstDomain) || $domain->is($this->secondDomain))
                 && $records !== [];
         })->andReturn(true);
@@ -571,13 +571,17 @@ class AlphaLinkServerReinstallTest extends TestCase
         $this->assertSame([
             'Prepare Reinstalling Server : '.$this->server->getKey(),
             'Re Setup Host',
+            'Configured PMTA host identity '.$this->firstDomain->name,
             'End Setting Host',
             'Re Setup Services',
             'End Setting Services',
             'Config Hosts A-AAAA-MX... For '.$this->firstDomain->name.' (A=2, TXT=2)',
             'Done Setting Records For '.$this->firstDomain->name.' (A=2, TXT=2)',
-            'Config Hosts A-AAAA-MX... For '.$this->secondDomain->name.' (A=1, TXT=1)',
-            'Done Setting Records For '.$this->secondDomain->name.' (A=1, TXT=1)',
+            'MANUAL DNS REQUIRED for '.$this->secondDomain->name.': add these records without changing unrelated records.',
+            'DNS A second-relay.'.$this->secondDomain->name.' -> 192.0.2.88',
+            'DNS TXT second-relay.'.$this->secondDomain->name.' -> v=spf1 ip4:192.0.2.88 -all',
+            'Pending manual DNS records are available on the external domain record page.',
+            'External DNS for '.$this->secondDomain->name.' does not point to the selected IPs; no provider records were changed.',
             'Re Config Firewall',
             'End Setting Firewall',
             'Ended Disconnecting From Server : '.$this->server->getKey(),

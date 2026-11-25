@@ -125,7 +125,7 @@
                             </div>
                         </div>
                         <div class="alert alert-info d-none mt-2" id="single-multi-domain-help" role="status" style="border-radius: 10px; font-size: 0.78rem;">
-                            Multi-Domain per IP supports up to 100 sending-domain assignments per server because tracking hostnames share one HTTPS certificate. AlphaLink creates DNS records when a working Cloudflare zone/API is available. Otherwise, the selected domains, tracking hosts, and EHLO hostnames must already resolve to the selected IPs, and SPF, DKIM, and DMARC must resolve before the server is changed.
+                            Multi-Domain per IP supports up to 100 sending-domain assignments per server because tracking hostnames share one HTTPS certificate. AlphaLink writes DNS through a connected Cloudflare API when available; external-domain records stay manual and are listed for copying. Installation continues when A/AAAA or SPF, DKIM, and DMARC records are pending. Missing A/AAAA skips domain HTTPS, and assignments stay unavailable for campaigns until DNS, authentication, and tracking checks pass.
                         </div>
 
                         <div class="table-responsive">

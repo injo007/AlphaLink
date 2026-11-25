@@ -131,6 +131,9 @@ class AlphaLinkCentos9InstallWorkflow
 
         $multiDomain = collect($ips)->contains(static fn (array $ip): bool => ! empty($ip['domains']));
         $assignmentPlan = $multiDomain ? $this->multiDomainPlan->build($ips) : null;
+        $assignmentReadinessByKey = [];
+        $trackingHttpsReadyByHost = [];
+        $allAssignmentAddressesReady = true;
         if ($assignmentPlan !== null) {
             $ips = $assignmentPlan['ips'];
             if (! $options['tracking'] || ! $options['https'] || ! $options['spf'] || ! $options['dkim'] || ! $options['dmarc']) {
@@ -350,7 +353,7 @@ class AlphaLinkCentos9InstallWorkflow
                 }
                 if (! $selectedDomain->is_our || ! ($domainProviderReady[$dnsGroup['domain_id']] ?? false)) {
                     $log(sprintf(
-                        '%s DNS is managed manually; no provider records will be changed for %s. Existing public records will be verified before any server changes.',
+                        '%s DNS is managed manually; no provider records will be changed for %s. Missing DNS records will remain pending while server setup continues.',
                         $selectedDomain->is_our ? 'Provider-managed' : 'External',
                         $dnsGroup['domain'],
                     ));
@@ -378,14 +381,18 @@ class AlphaLinkCentos9InstallWorkflow
 
                     continue;
                 }
-                $this->domainRecords->runAssignments(
-                    $selectedDomain,
-                    $records,
-                    [...$options, 'clean_dns' => false],
-                    $this->assignmentDnsWriter,
-                    $log,
-                    $additionalARecords,
-                );
+                try {
+                    $this->domainRecords->runAssignments(
+                        $selectedDomain,
+                        $records,
+                        [...$options, 'clean_dns' => false],
+                        $this->assignmentDnsWriter,
+                        $log,
+                        $additionalARecords,
+                    );
+                } catch (RuntimeException $exception) {
+                    $log('DNS provider updates did not finish for '.$selectedDomain->name.'; continuing server installation and checking public DNS readiness: '.$exception->getMessage());
+                }
             }
 
             $publicAssignments = [];
@@ -400,21 +407,32 @@ class AlphaLinkCentos9InstallWorkflow
                 }
                 $publicAssignments[] = [
                     ...$assignment,
+                    'source_ip' => (string) $assignment['ip'],
                     'ip' => $publicIp,
                     'ehlo_hostname' => (string) $ipEntry['ehlo_hostname'],
                 ];
             }
 
-            // Resolve the records before changing the mail host. This makes
-            // externally managed DNS a supported path, and prevents an
-            // unavailable DNS API from leaving a half-installed server.
-            $this->multiDomainDnsVerifier->verifyForwardAddresses($publicAssignments);
-            $this->multiDomainDnsVerifier->verifyMailAuthentication($publicAssignments, $options);
-            foreach ($domainsById as $domainId => $_selectedDomain) {
-                $domainProviderReady[$domainId] = true;
+            $assignmentReadiness = $this->multiDomainDnsVerifier->inspectReadiness($publicAssignments, $options);
+            $addressReadinessByDomain = [];
+            $allAssignmentAddressesReady = true;
+            foreach ($assignmentReadiness as $readiness) {
+                $key = $readiness['source_ip'].'|'.$readiness['hostname'];
+                $assignmentReadinessByKey[$key] = $readiness;
+                $addressReadinessByDomain[$readiness['domain_id']][] = $readiness['dns_verified'];
+                $allAssignmentAddressesReady = $allAssignmentAddressesReady && $readiness['dns_verified'];
+                if (! $readiness['dns_verified']) {
+                    $log('A/AAAA DNS is pending for '.implode(', ', $readiness['missing_address_hosts']).'; continuing installation without domain HTTPS for this multi-domain setup.');
+                } elseif (! $readiness['authentication_verified']) {
+                    $log('SPF, DKIM, or DMARC TXT records are pending for '.$readiness['hostname'].'; installation continues, but this domain will remain unavailable for sending.');
+                }
             }
-
-            $log('Verified public sending, tracking, and EHLO DNS plus SPF, DKIM, and DMARC before changing the mail server');
+            foreach ($addressReadinessByDomain as $domainId => $states) {
+                $domainProviderReady[$domainId] = ! in_array(false, $states, true);
+            }
+            if (! $allAssignmentAddressesReady) {
+                $log('Domain HTTPS will be skipped until every sending, tracking, and EHLO A/AAAA record resolves to its selected IP.');
+            }
         }
 
         $primaryDomainReady = $domainProviderReady[$primaryDomainId] ?? false;
@@ -533,7 +551,15 @@ class AlphaLinkCentos9InstallWorkflow
                 ? array_values(array_filter($subdomains, static fn (string $host): bool => $host !== $certificateDomain))
                 : []);
 
-        $log($options['https'] ? 'Setup HTTPS for selected domain' : 'Setup HTTPS for PMTA Web Monitor');
+        if ($assignmentPlan !== null && ! $allAssignmentAddressesReady) {
+            $certificateDomain = null;
+            $certificateSubdomains = [];
+            $log('Skipping domain HTTPS because assignment A/AAAA records are not ready; PMTA monitoring will use the AlphaLink proxy or IP fallback.');
+        }
+
+        $log($assignmentPlan !== null && ! $allAssignmentAddressesReady
+            ? 'Setup HTTPS for PMTA Web Monitor'
+            : ($options['https'] ? 'Setup HTTPS for selected domain' : 'Setup HTTPS for PMTA Web Monitor'));
         if ($certificateDomain !== null && ! $this->firewall->prepareDomainCertificatePorts($session)) {
             $log('The host firewall could not confirm HTTP/HTTPS access before domain certificate issuance; the PMTA monitor may fall back to the AlphaLink HTTPS proxy.');
         }
@@ -575,7 +601,7 @@ class AlphaLinkCentos9InstallWorkflow
 
         $trackingHttpsReady = false;
         $trackingHttpsReadyByHost = [];
-        if ($options['tracking'] && $options['https'] && $domainCertificateReady && $trackingDomain !== '') {
+        if ($assignmentPlan === null && $options['tracking'] && $options['https'] && $domainCertificateReady && $trackingDomain !== '') {
             $trackingHttpsReady = $this->tracking->verifyHttps($session, $trackingDomain);
             if (! $trackingHttpsReady) {
                 $log('Tracking HTTPS did not pass its health and redirect checks; tracked campaign sends require repair before use.');
@@ -584,22 +610,31 @@ class AlphaLinkCentos9InstallWorkflow
 
         if ($assignmentPlan !== null) {
             foreach ($assignmentPlan['tracking_hosts'] as $assignmentTrackingHost) {
-                $ready = $this->tracking->verifyHttps($session, $assignmentTrackingHost);
+                $ready = $domainCertificateReady && $this->tracking->verifyHttps($session, $assignmentTrackingHost);
                 $trackingHttpsReadyByHost[$assignmentTrackingHost] = $ready;
                 if (! $ready) {
-                    throw new RuntimeException('HTTPS tracking verification failed for assignment host '.$assignmentTrackingHost.'.');
+                    $log('HTTPS tracking remains pending for '.$assignmentTrackingHost.'; installation continues and the domain cannot be used for sending yet.');
                 }
             }
-            $this->multiDomainDnsVerifier->verify($publicAssignments, $options);
-
             foreach ($ips as &$ipEntry) {
-                $ipEntry['dns_verified'] = true;
-                $ipEntry['authentication_verified'] = true;
-                $ipEntry['tracking_https_ready'] = true;
+                $primaryHostname = strtolower(($ipEntry['sub'] !== '' ? $ipEntry['sub'].'.' : '').$ipEntry['domain']);
+                $primaryReadiness = $assignmentReadinessByKey[$ipEntry['ip'].'|'.$primaryHostname] ?? null;
+                $primaryTrackingHost = (string) ($ipEntry['tracking_host'] ?? '');
+                $ipEntry['dns_verified'] = (bool) ($primaryReadiness['dns_verified'] ?? false);
+                $ipEntry['authentication_verified'] = (bool) ($primaryReadiness['authentication_verified'] ?? false);
+                $ipEntry['tracking_https_ready'] = $ipEntry['dns_verified']
+                    && (bool) ($trackingHttpsReadyByHost[$primaryTrackingHost] ?? false);
+                if (! empty($ipEntry['main'])) {
+                    $trackingHttpsReady = $ipEntry['tracking_https_ready'];
+                }
                 foreach ($ipEntry['domains'] as &$additionalIdentity) {
-                    $additionalIdentity['dns_verified'] = true;
-                    $additionalIdentity['authentication_verified'] = true;
-                    $additionalIdentity['tracking_https_ready'] = true;
+                    $hostname = strtolower(($additionalIdentity['sub'] !== '' ? $additionalIdentity['sub'].'.' : '').$additionalIdentity['domain']);
+                    $readiness = $assignmentReadinessByKey[$ipEntry['ip'].'|'.$hostname] ?? null;
+                    $trackingHost = (string) ($additionalIdentity['tracking_host'] ?? '');
+                    $additionalIdentity['dns_verified'] = (bool) ($readiness['dns_verified'] ?? false);
+                    $additionalIdentity['authentication_verified'] = (bool) ($readiness['authentication_verified'] ?? false);
+                    $additionalIdentity['tracking_https_ready'] = $additionalIdentity['dns_verified']
+                        && (bool) ($trackingHttpsReadyByHost[$trackingHost] ?? false);
                 }
                 unset($additionalIdentity);
             }
@@ -624,12 +659,15 @@ class AlphaLinkCentos9InstallWorkflow
         $this->applicationReadiness->verify($workspace, $server, $settings['pmta_admin_port']);
         $log('PMTA monitor and read-only command access verified through the configured relay proxy');
 
+        $completedTrackingHost = $assignmentPlan !== null
+            ? ($trackingHttpsReady ? $trackingDomain : (string) $server->ip_address)
+            : ($trackingHttpsReady ? $trackingDomain : ($monitorDomain ?? (string) $server->ip_address));
         if ($ipAssignments === null) {
             $completedOptions = [...$options, 'https' => $options['https'] && $domainCertificateReady];
-            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, [], $pmtaMonitorHttps, $trackingHttpsReady ? $trackingDomain : ($monitorDomain ?? (string) $server->ip_address), $trackingHttpsReady);
+            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, [], $pmtaMonitorHttps, $completedTrackingHost, $trackingHttpsReady);
         } else {
             $completedOptions = [...$options, 'https' => $options['https'] && $domainCertificateReady];
-            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps, $trackingHttpsReady ? $trackingDomain : ($monitorDomain ?? (string) $server->ip_address), $trackingHttpsReady);
+            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps, $completedTrackingHost, $trackingHttpsReady);
         }
         $publicPort = $settings['pmta_admin_port'];
         $adminUrl = PmtaPanelUrl::displayUrlForInstallation(

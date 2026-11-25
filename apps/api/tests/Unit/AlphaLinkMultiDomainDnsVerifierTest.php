@@ -43,6 +43,45 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
         $this->assertTrue(true);
     }
 
+    public function test_readiness_inspection_does_not_wait_or_fail_when_tracking_a_record_and_auth_txt_are_missing(): void
+    {
+        $dns = $this->createMock(AlphaLinkPublicDnsRecordResolver::class);
+        $dns->method('records')->willReturnCallback(static function (string $hostname, int $type): array {
+            return $hostname === 'mail.example.test' && $type === DNS_A ? [['ip' => '8.8.8.8']] : [];
+        });
+        $waitCount = 0;
+        $waiter = new AlphaLinkDnsPropagationWaiter(12, 5_000_000, static function (int $microseconds) use (&$waitCount): void {
+            $waitCount++;
+        });
+
+        $readiness = $this->verifier($dns, $waiter)->inspectReadiness([
+            [...$this->assignment(), 'domain_id' => 'domain-one', 'source_ip' => '8.8.8.8'],
+        ], ['spf' => true, 'dkim' => true, 'dmarc' => true]);
+
+        $this->assertSame(0, $waitCount);
+        $this->assertFalse($readiness[0]['dns_verified']);
+        $this->assertFalse($readiness[0]['authentication_verified']);
+        $this->assertSame(['track.mail.example.test'], $readiness[0]['missing_address_hosts']);
+    }
+
+    public function test_missing_mail_authentication_txt_keeps_dns_ready_without_throwing(): void
+    {
+        $dns = $this->createMock(AlphaLinkPublicDnsRecordResolver::class);
+        $dns->method('records')->willReturnCallback(static function (string $hostname, int $type): array {
+            return in_array($hostname, ['mail.example.test', 'track.mail.example.test'], true) && $type === DNS_A
+                ? [['ip' => '8.8.8.8']]
+                : [];
+        });
+
+        $readiness = $this->verifier($dns)->inspectReadiness([
+            [...$this->assignment(), 'domain_id' => 'domain-one'],
+        ], ['spf' => true, 'dkim' => true, 'dmarc' => true]);
+
+        $this->assertTrue($readiness[0]['dns_verified']);
+        $this->assertFalse($readiness[0]['authentication_verified']);
+        $this->assertSame([], $readiness[0]['missing_address_hosts']);
+    }
+
     public function test_forward_address_verification_retries_dns_propagation(): void
     {
         $trackingLookups = 0;

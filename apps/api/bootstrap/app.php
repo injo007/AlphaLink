@@ -96,11 +96,11 @@ $application = Application::configure(basePath: dirname(__DIR__))
         if (Schema::hasTable('campaign_lead_conversions') && Schema::hasTable('workspace_sponsors')) {
             $schedule->command(SyncWorkspaceSponsorLeads::class)
                 ->everyFiveMinutes()
-                ->withoutOverlapping()
+                ->withoutOverlapping(15)
                 ->runInBackground();
             $schedule->command(SyncWorkspaceSponsorLeads::class, ['--days' => 10])
                 ->dailyAt('06:04')
-                ->withoutOverlapping()
+                ->withoutOverlapping(180)
                 ->runInBackground();
         }
 

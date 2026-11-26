@@ -933,8 +933,8 @@ Deployment plan (no changes are made):
   3. Put the app into maintenance mode and stop Horizon, suppression, and scheduler work.
   4. Create and verify a PostgreSQL backup before changing the active release or schema.
   5. Atomically switch the current-release symlink, run migrations, and warm Laravel caches.
-  6. Restart PHP-FPM, check the app's HTTPS health, resume queues and schedule,
-     then verify Horizon and queue/scheduler services.
+  6. Restart PHP-FPM, check the app's HTTPS health, resume queues and the supervised scheduler,
+     then verify Horizon and scheduler services.
   7. On a failed migration or health check, restore the database backup and prior release.
 
 The GitHub token is entered interactively for each private-repository deploy and
@@ -945,6 +945,35 @@ installation, and server reinstall routes, then verify all three switches
 from Laravel's refreshed config cache. CONFIG IPS remains separately disabled
 unless its network-change setting is explicitly enabled.
 EOF
+}
+
+configure_scheduler_service_unit() {
+    systemctl disable --now alphalink-schedule.timer >/dev/null 2>&1 || true
+    rm -f /etc/systemd/system/alphalink-schedule.timer
+    cat > /etc/systemd/system/alphalink-schedule.service <<UNIT
+[Unit]
+Description=Run AlphaLink's supervised Laravel scheduler
+After=network.target postgresql.service valkey-server.service
+Wants=postgresql.service valkey-server.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=${API_ROOT}
+Environment=ALPHALINK_ENV_DIR=${ENV_ROOT}
+ExecStart=/usr/bin/php artisan schedule:work --whisper
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+KillMode=mixed
+TimeoutStopSec=300
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    systemctl daemon-reload
+    systemctl enable alphalink-schedule.service
 }
 
 deploy_release() {
@@ -1183,7 +1212,8 @@ deploy_release() {
         if [[ ! -f "$SHARED_ROOT/storage/framework/maintenance.php" ]]; then
             runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" down --retry=60 >/dev/null 2>&1 || true
         fi
-        systemctl stop alphalink-schedule.timer alphalink-schedule.service alphalink-horizon.service \
+        systemctl disable --now alphalink-schedule.timer >/dev/null 2>&1 || true
+        systemctl stop alphalink-schedule.service alphalink-horizon.service \
             alphalink-drop-suppression.service php8.5-fpm >/dev/null 2>&1 || true
         for service in alphalink-schedule.service alphalink-horizon.service alphalink-drop-suppression.service php8.5-fpm; do
             if systemctl is-active --quiet "$service"; then
@@ -1205,6 +1235,7 @@ deploy_release() {
             atomic_switch_release "$previous_release" || rollback_ok=0
         fi
         if (( rollback_ok == 1 )); then
+            configure_scheduler_service_unit || rollback_ok=0
             runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" optimize:clear >/dev/null 2>&1 || true
             if systemctl restart php8.5-fpm >/dev/null 2>&1 \
                 && systemctl start alphalink-horizon.service alphalink-drop-suppression.service >/dev/null 2>&1; then
@@ -1216,10 +1247,10 @@ deploy_release() {
                 runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" up >/dev/null 2>&1 || rollback_ok=0
             fi
             if (( rollback_ok == 1 )); then
-                systemctl start alphalink-schedule.timer >/dev/null 2>&1 || rollback_ok=0
+                systemctl start alphalink-schedule.service >/dev/null 2>&1 || rollback_ok=0
             fi
             if (( rollback_ok == 1 )); then
-                for service in php8.5-fpm alphalink-horizon.service alphalink-drop-suppression.service; do
+                for service in php8.5-fpm alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.service; do
                     systemctl is-active --quiet "$service" || rollback_ok=0
                 done
                 runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" horizon:status 2>&1 | grep -qi 'running' || rollback_ok=0
@@ -1244,7 +1275,8 @@ deploy_release() {
 
     info 'Entering maintenance mode and pausing background work...'
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" down --retry=60
-    systemctl stop alphalink-schedule.timer alphalink-schedule.service alphalink-horizon.service alphalink-drop-suppression.service
+    systemctl disable --now alphalink-schedule.timer >/dev/null 2>&1 || true
+    systemctl stop alphalink-schedule.service alphalink-horizon.service alphalink-drop-suppression.service
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" schedule:interrupt
 
     info 'Creating and verifying the pre-deploy PostgreSQL backup...'
@@ -1258,6 +1290,7 @@ deploy_release() {
     info "Activating release ${release_sha} and applying PostgreSQL migrations..."
     atomic_switch_release "$release_path"
     switched=1
+    configure_scheduler_service_unit
     migrations_started=1
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" migrate --force --no-interaction
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" alphalink:sync-pmta-relay-source-ips --no-interaction
@@ -1274,8 +1307,8 @@ deploy_release() {
     valid_app_domain "$app_domain" || fail 'Could not find a valid AlphaLink hostname in the Nginx site configuration.'
     restrict_app_https_ingress "$app_domain"
     verify_local_https_application_health "$app_domain"
-    systemctl start alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer
-    for service in php8.5-fpm alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer; do
+    systemctl start alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.service
+    for service in php8.5-fpm alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.service; do
         info "Verifying deployment service ${service}..."
         systemctl is-active --quiet "$service"
     done
@@ -1461,11 +1494,12 @@ resume_initial_install() {
     info 'Finishing PHP-FPM, Nginx, Horizon, scheduler, and backup setup...'
     env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" storage:link
     nginx -t
+    configure_scheduler_service_unit
     systemctl daemon-reload
     systemctl restart "php${PHP_VERSION}-fpm"
     systemctl enable --now alphalink-horizon.service alphalink-drop-suppression.service \
-        alphalink-schedule.timer alphalink-db-backup.timer
-    for service in "php${PHP_VERSION}-fpm" alphalink-horizon.service alphalink-drop-suppression.service; do
+        alphalink-schedule.service alphalink-db-backup.timer
+    for service in "php${PHP_VERSION}-fpm" alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.service; do
         systemctl is-active --quiet "$service" || fail "Service did not become active: ${service}"
     done
     for attempt in {1..12}; do
@@ -2176,31 +2210,7 @@ TimeoutStopSec=86400
 [Install]
 WantedBy=multi-user.target
 UNIT
-cat > /etc/systemd/system/alphalink-schedule.service <<UNIT
-[Unit]
-Description=Run AlphaLink's Laravel scheduler
-After=network.target postgresql.service valkey-server.service
-
-[Service]
-Type=oneshot
-User=www-data
-Group=www-data
-WorkingDirectory=${API_ROOT}
-Environment=ALPHALINK_ENV_DIR=${ENV_ROOT}
-ExecStart=/usr/bin/php artisan schedule:run
-UNIT
-cat > /etc/systemd/system/alphalink-schedule.timer <<'UNIT'
-[Unit]
-Description=Run AlphaLink's Laravel scheduler every minute
-
-[Timer]
-OnCalendar=*-*-* *:*:00
-Persistent=true
-Unit=alphalink-schedule.service
-
-[Install]
-WantedBy=timers.target
-UNIT
+configure_scheduler_service_unit
 
 install -d -o postgres -g postgres -m 0700 "$BACKUP_ROOT"
 cat > /etc/systemd/system/alphalink-db-backup.service <<'UNIT'
@@ -2240,8 +2250,8 @@ verify_install_execution_gates
 nginx -t
 systemctl daemon-reload
 systemctl restart php8.5-fpm
-systemctl enable --now alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer alphalink-db-backup.timer
-for service in php8.5-fpm alphalink-horizon.service alphalink-drop-suppression.service; do
+systemctl enable --now alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.service alphalink-db-backup.timer
+for service in php8.5-fpm alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.service; do
     systemctl is-active --quiet "$service" || fail "Service did not become active: $service"
 done
 for attempt in {1..12}; do

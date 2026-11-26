@@ -42,6 +42,20 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->assertTrue($event->withoutOverlapping);
     }
 
+    public function test_sponsor_sync_schedule_uses_recoverable_overlap_windows(): void
+    {
+        Artisan::call('schedule:list');
+        $events = collect(app(Schedule::class)->events())
+            ->filter(fn ($event): bool => str_contains((string) $event->command, 'workspace:sponsor-leads'))
+            ->keyBy('expression');
+
+        $this->assertCount(2, $events);
+        $this->assertSame(15, $events->get('*/5 * * * *')?->expiresAt);
+        $this->assertSame(180, $events->get('4 6 * * *')?->expiresAt);
+        $this->assertTrue($events->get('*/5 * * * *')?->runInBackground);
+        $this->assertTrue($events->get('4 6 * * *')?->runInBackground);
+    }
+
     public function test_daily_analytics_source_indexes_lead_with_the_event_time(): void
     {
         $expectedIndexes = [

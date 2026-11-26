@@ -1191,6 +1191,16 @@ Authenticated production screenshot evidence at 1730 × 892 showed the live dash
 
 Dashboard tests pass **28 / 447 assertions** in the PHP 8.5 container; focused Pint, PHP syntax, TypeScript, Vite build, and `git diff --check` pass. The live page remains on the prior release: `.env` has `PROJECT_MODE=reference_audit` and `ALLOW_PRODUCTION_WRITES=false`, so deployment was not run. Live visual verification of this source update and DMS parity remain unverified; keep DMS-DASH-001 TESTING.
 
+### E-DASH-53 — Automatic sponsor statistics recovery — 2026-11-26
+
+AlphaLink production scheduler inspection showed both `workspace:sponsor-leads` events held 24-hour Laravel overlap locks while no matching process existed. The Ubuntu installer now converts the legacy timer/oneshot unit into an enabled systemd-supervised `schedule:work` service; rollback also restores this unit. The five-minute event lock expires after 15 minutes and the daily ten-day replay after 180 minutes. The prior cause of process disappearance is an inference from the one-shot timer lifecycle; the mutexes and absent processes were observed directly.
+
+The focused scheduler regression passes 1 test / 5 assertions; the existing sponsor-import cache-refresh regression passes 1 / 6. Targeted Pint, PHP 8.5 execution, `bash -n install-ubuntu-26.sh`, and `git diff --check` pass. A broader filtered dashboard run has 13 failing view/role expectations and is not claimed as green.
+
+Commit `721fa33a3e701b6a4d66d58088f58a27cc6e2707` is active on AlphaLink `baseheavy.shop`; backup `/var/backups/alphalink/deploy-721fa33a3e701b6a4d66d58088f58a27cc6e2707-20261126T193317Z.dump` was verified and server-local HTTPS `/up` returned 200. The supervised scheduler is enabled/active and the legacy timer is inactive. Exactly two stale event mutexes were cleared only after confirming there was no running sponsor sync. The next automatic five-minute event began at 19:45 UTC and released its event lock.
+
+Real AlphaLink provider report checks ran against the three saved active sponsors without browser sign-in. `workspace:sponsor-leads --days=1` exited 0 with zero rows for each sponsor. `--days=10` exited 0 and imported 41 new provider records totaling EUR 369.00 from one sponsor; all 41 were unlinked because the legacy campaign IDs do not resolve to current campaign/Drop recipient records. Read-only PostgreSQL aggregation confirms the 41 rows and latest conversion at 2026-11-23 18:48:09 UTC. Provider-row changes follow the existing dashboard cache invalidation path. The Dashboard page itself was not opened because the user requires a proxy for sign-in. No email, send, or DMS action occurred. Keep DMS-DASH-001, DMS-AFF-002 and DMS-JOBS-001 TESTING.
+
 ### E-CAMP-164 — My Campaigns actions and analytics presentation — 2026-11-07
 
 Source: `apps/api/resources/views/console/campaigns/index.blade.php`, `apps/api/resources/js/campaign-register.ts`, `WorkspaceConsoleController`, `WorkspaceCampaignStatisticsConsoleController`, and focused campaign feature tests. Existing row actions remain in their four-column/two-row grid, with Command OS token-based colors and red/green disable/restore intent. Marketing rows retain Open, test history, test, Edit, IP selection state, statistics, Clone, and disable/restore; current configuration gates remain visible and explained.

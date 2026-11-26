@@ -2,6 +2,10 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-26 Multi-domain HTTPS tracking uses selected hosts — E-MDOM-19
+
+New multi-domain Install/Reinstall no longer creates a hashed `track-<IP>` child hostname. Each selected sending FQDN is also configured as its HTTPS tracking host, checked for A/AAAA, served by the tracker vhost, and included in the certificate request. The guarded AlphaLink release `c15ddd8ec1846d3985f346bdedfbe884dabe44e2` is active; backup and independent local HTTPS/service checks passed. Existing installed assignments retain their stored tracker until Reinstall. A real external-domain certificate issuance and mail-server reinstall have not run; confirm those after the user publishes the selected hostname A/AAAA records and makes inbound HTTP validation reachable. DMS and DNS were not changed.
+
 ## 2026-11-25 External-domain DNS and Nginx repair — E-SRV-LIVE-32
 
 Commit `d87bbd2b9390da8f466fab94ec2f847238600a83` is active on AlphaLink production. The guarded installer found no migrations pending, verified backup `/var/backups/alphalink/deploy-d87bbd2b9390da8f466fab94ec2f847238600a83-20261125T151720Z.dump`, checked required services, and passed local HTTPS `/up` and `/sign-in` (200). Focused tests and static checks passed with PHPUnit warnings. The authenticated Domains page and a real mail-server retry remain unverified; no mail-server config, DNS, or DMS state was changed. The page generates records only when an active installed server/IP assignment is saved; unassigned domains still lack enough persisted information for exact records. Keep this workflow TESTING until those checks are complete.

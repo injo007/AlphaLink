@@ -1317,8 +1317,8 @@
         <div id="campaign-data" tabindex="-1">
         <div class="alert alert-primary alert-dismissible text-center py-2" id="campaign-usable-tags">
             <strong><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>USABLE TAGS:</strong>
-            <span class="campaign-usable-tag-list">[server] [main_domain] [ip] [domain] [rdns] [to] [date] [name] __Fname__ __Lname__ [rnd] [smtp] [smtp_name] [rnd(N|A|L|U|S|LU|LN|NU)_NUMBER] [text:a|b|c]</span>
-            <small class="sr-only">__Fname__ and __Lname__ insert recipient names, falling back to the email alias when a name is missing. [smtp] and [smtp_name] fill message text; Option SMTP selects the outbound relay. Start a saved campaign from My Campaigns after suppression and recipient preparation finish.</small>
+            <span class="campaign-usable-tag-list">[server] [main_domain] [ip] [domain] [rdns] [to] [date] [name] __Fname__ __Lname__ [rnd] [smtp] [smtp_name] [api_main_domain] [brand_api] [user] [rnd(N|A|L|U|S|LU|LN|NU)_NUMBER] [text:a|b|c]</span>
+            <small class="sr-only">__Fname__ and __Lname__ insert recipient names, falling back to the email alias when a name is missing. [smtp] and [smtp_name] fill message text; [api_main_domain], [brand_api], and [user] use the selected SMTP username. Option SMTP selects the outbound relay. Start a saved campaign from My Campaigns after suppression and recipient preparation finish.</small>
             <button type="button" class="btn btn-link btn-sm p-0 ml-1" id="campaign-tags-help" title="SHOW EXAMPLE" aria-label="Show tag examples"><i class="fas fa-question-circle" aria-hidden="true"></i></button>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button>
         </div>
@@ -1736,6 +1736,7 @@
                     <p><code>__Fname__</code> Recipient first name · <code>__Lname__</code> Recipient last name. Names are taken from the imported profile and fall back to the email alias when missing.</p>
                     <p><code>[rnd]</code> 18 random characters · <code>[text:a|b|c]</code> Choose one value · <code>[base64:text]</code> Base64 encode · <code>[printable:text]</code> Quoted-printable encode</p>
                     <p><code>[boundary]</code> 30 static characters · <code>[bnd]</code> 30 static characters · <code>[smtp]</code> SMTP username · <code>[smtp_name]</code> SMTP name · <code>[tag]</code> Tag reply extractor · <code>#[token]</code> Track redirect/unsubscribe short links</p>
+                    <p><code>[api_main_domain]</code> Domain after <code>@</code> in the selected SMTP username · <code>[brand_api]</code> brand label without its public suffix (for example, <code>gmail</code> or <code>onmicrosoft</code>) · <code>[user]</code> selected SMTP username alias before <code>@</code></p>
                     <h4 class="h6">Random tags</h4>
                     <p><code>[rnd]</code> generates 18 random characters. Replace <code>N</code> in a random tag with a number from 1 to 10,000 to set its length. Leaving the literal <code>N</code> uses 18 characters:</p>
                     <ul class="mb-3">

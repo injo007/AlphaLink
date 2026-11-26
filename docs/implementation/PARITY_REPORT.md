@@ -2,6 +2,12 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## Campaign SMTP identity tags — E-CAMP-173 (2026-11-26)
+
+For the historical Campaigns authoring route `GET /mailer/campaigns` and its create/edit content workflow (DMS-CAMP-001), AlphaLink now expands `[api_main_domain]` from the selected SMTP username's part after `@`, `[brand_api]` from the brand label before its common public suffix, and `[user]` from the username alias before `@`. Domain output is lowercased. When the SMTP username has no `@`, `[user]` is the whole username and the two domain tags are empty. The Create/Edit tag bar and help dialog describe the tags. IP-route Campaign Test fails before transport if these tags are used without exactly one linked SMTP account; selecting an explicit SMTP route binds them to that account.
+
+The captured historical catalog does not establish these tag names or semantics. This is an explicit user-requested `APPROVED_DEVIATION`; it documents AlphaLink behavior only and does not claim DMS parity. `AlphaLinkCampaignSendCatalogTest` passes 4 tests / 98 assertions for extraction, public-suffix cases, successful fake-transport rendering, ambiguous-route rejection, and the composer help UI; four existing PHPUnit warnings were emitted. Pint passes. No schema or authorization behavior changed, no real message was sent, and no DMS action ran. Keep DMS-CAMP-001 IMPLEMENTING; campaign send and historical tag behavior remain open.
+
 ## AlphaLink selected FQDN for multi-domain HTTPS tracking — E-MDOM-19 (2026-11-26)
 
 The install plan previously derived `track-<10 hex IP hash>.<sending FQDN>`, requiring an additional external DNS A/AAAA record even when the selected sending hostname already pointed to the server. Fresh/bulk install and Reinstall now use each exact selected sending FQDN as its tracking hostname. The assignment A/AAAA record serves both purposes and is de-duplicated in DNS plans. The tracker vhost aliases and shared certificate SANs include the selected assignment hostnames. DNS verification checks the selected host for sending/tracking and the configured per-IP EHLO; no hash-derived tracker child is generated. The existing one-physical-IP-to-many-domain assignment model and per-domain DKIM identities are unchanged. Pending A/AAAA still causes setup to continue while skipping domain TLS. Older saved child tracking hostnames remain valid until the server is reinstalled.

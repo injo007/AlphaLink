@@ -2,6 +2,10 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-26 Campaign SMTP identity tags — E-CAMP-173
+
+AlphaLink implements the explicitly requested `[api_main_domain]`, `[brand_api]`, and `[user]` tags using the selected SMTP username. Synthetic PHP coverage and the Create Campaign help check pass. The corresponding historical DMS route is the Campaigns authoring workflow, but the captured DMS tag catalog does not prove these names or their expansion rules. This is an `APPROVED_DEVIATION` for AlphaLink, not a parity finding. Keep DMS-CAMP-001 IMPLEMENTING; the legacy semantics and broader native sender expansion remain UNKNOWN.
+
 ## 2026-11-26 Multi-domain HTTPS tracking uses selected hosts — E-MDOM-19
 
 New multi-domain Install/Reinstall no longer creates a hashed `track-<IP>` child hostname. Each selected sending FQDN is also configured as its HTTPS tracking host, checked for A/AAAA, served by the tracker vhost, and included in the certificate request. The guarded AlphaLink release `c15ddd8ec1846d3985f346bdedfbe884dabe44e2` is active; backup and independent local HTTPS/service checks passed. Existing installed assignments retain their stored tracker until Reinstall. A real external-domain certificate issuance and mail-server reinstall have not run; confirm those after the user publishes the selected hostname A/AAAA records and makes inbound HTTP validation reachable. DMS and DNS were not changed.

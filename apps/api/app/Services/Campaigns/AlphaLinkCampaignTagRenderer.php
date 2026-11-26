@@ -29,6 +29,10 @@ class AlphaLinkCampaignTagRenderer
         $boundaryCache ??= [];
         $text = $this->replacePlaceholders($text, $placeholderRows, $rotationIndex);
         $values['domain_sld'] ??= $this->domainWithoutTld((string) ($values['domain'] ?? ''));
+        $smtpIdentity = $this->smtpIdentity((string) ($values['smtp'] ?? ''));
+        $values['api_main_domain'] ??= $smtpIdentity['api_main_domain'];
+        $values['brand_api'] ??= $smtpIdentity['brand_api'];
+        $values['user'] ??= $smtpIdentity['user'];
 
         $text = preg_replace(
             '~(?<![A-Z0-9@._-])(?:https?://)?(?:\[domain\]|(?:[A-Z0-9-]+\.)+[A-Z0-9-]{2,63}|(?:\d{1,3}\.){3}\d{1,3})(?::\d+)?/(?:\[rnd(?:un)?_\d+\])?r\[token\]~i',
@@ -91,6 +95,7 @@ class AlphaLinkCampaignTagRenderer
             'ip', 'rdns', 'domain', 'domain_sld', 'to', 'name', 'from', 'subject', 'date', 'server',
             'main_domain', 'idi', 'idd', 'ids', 'ide', 'boundary', 'reply', 'negative',
             'token', 'click_url', 'open_url', 'url', 'unsub', 'unsubscribe', 'optout', 'textarea', 'smtp', 'smtp_name', 'tag',
+            'api_main_domain', 'brand_api', 'user',
         ] as $tag) {
             $text = str_ireplace('['.$tag.']', (string) ($values[$tag] ?? ''), $text);
         }
@@ -115,6 +120,45 @@ class AlphaLinkCampaignTagRenderer
         $lastDot = strrpos($domain, '.');
 
         return $lastDot === false ? $domain : substr($domain, 0, $lastDot);
+    }
+
+    /** @return array{api_main_domain: string, brand_api: string, user: string} */
+    private function smtpIdentity(string $smtp): array
+    {
+        $smtp = trim($smtp);
+        $atPosition = strrpos($smtp, '@');
+        if ($atPosition === false) {
+            return ['api_main_domain' => '', 'brand_api' => '', 'user' => $smtp];
+        }
+
+        $domain = strtolower(rtrim(trim(substr($smtp, $atPosition + 1)), '.'));
+        $user = trim(substr($smtp, 0, $atPosition));
+
+        return [
+            'api_main_domain' => $domain,
+            'brand_api' => $this->apiBrand($domain),
+            'user' => $user,
+        ];
+    }
+
+    private function apiBrand(string $domain): string
+    {
+        $labels = array_values(array_filter(explode('.', trim($domain, '.')), static fn (string $label): bool => $label !== ''));
+        if (count($labels) < 2) {
+            return '';
+        }
+
+        $twoLabelPublicSuffixes = [
+            'ac.uk', 'co.uk', 'gov.uk', 'org.uk', 'com.au', 'net.au', 'org.au', 'edu.au',
+            'co.nz', 'net.nz', 'org.nz', 'co.jp', 'ne.jp', 'or.jp', 'co.in', 'firm.in',
+            'net.in', 'org.in', 'com.br', 'com.cn', 'com.hk', 'com.mx', 'com.sg', 'co.za',
+        ];
+        $lastTwoLabels = implode('.', array_slice($labels, -2));
+        $brandIndex = in_array($lastTwoLabels, $twoLabelPublicSuffixes, true)
+            ? count($labels) - 3
+            : count($labels) - 2;
+
+        return $brandIndex >= 0 ? $labels[$brandIndex] : '';
     }
 
     public function campaignTestToken(

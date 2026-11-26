@@ -1,8 +1,16 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-26
-**Active objective:** Use the exact selected sending hostname for HTTPS tracking in multi-domain Install and Reinstall, while preserving multi-domain-per-IP sending identities and separate DKIM keys.
-**Current implementation status:** Commit `c15ddd8ec1846d3985f346bdedfbe884dabe44e2` uses each selected FQDN as its own HTTPS tracking hostname; no `track-<IP hash>` child record is generated for new multi-domain installs or reinstalls. DNS readiness, Apache tracking aliases, and certificate SANs use the selected names. The existing multi-domain-per-IP model remains one physical IP shared by multiple domain identities, with separate DKIM identities. Campaign selection remains independent of readiness; tracking links are included only after HTTPS verifies. Focused PHP 8.5 tests, Pint, PHP lint, Blade compilation, and `git diff --check` pass. The guarded deploy is active on AlphaLink production with verified backup `/var/backups/alphalink/deploy-c15ddd8ec1846d3985f346bdedfbe884dabe44e2-20261126T002839Z.dump`; independent checks confirm the active release, HTTPS `/up` and `/sign-in` (200), and required services. Existing installed assignments retain their current tracking host until Reinstall; no mail-server Reinstall, DNS change, live mail-authentication check, or DMS change was performed.
+**Active objective:** Add `[api_main_domain]`, `[brand_api]`, and `[user]` to campaign content using the selected SMTP username.
+**Current implementation status:** E-CAMP-173 adds and documents the three tags in the shared campaign renderer and Create/Edit composer. Synthetic PHP 8.5 tests pass **4 tests / 98 assertions** (four PHPUnit warnings); targeted Pint passes. IP-route Campaign Test requires exactly one linked SMTP account when an SMTP identity tag is used. GitHub push and AlphaLink deployment are pending.
+
+### Campaign SMTP identity tags — E-CAMP-173 (2026-11-26)
+
+Campaign content can use `[api_main_domain]` for the domain after `@` in the selected SMTP username, `[brand_api]` for the provider/brand label without the common public suffix (for example, `tenant.onmicrosoft.com` becomes `onmicrosoft`), and `[user]` for the alias before `@`. The username alias is used as-is when an SMTP username has no `@`; the two domain tags are empty in that case. Domains are lowercased. The Create/Edit tag bar and help dialog explain each token. An IP-route Campaign Test now treats these as SMTP-dependent tags and rejects missing or ambiguous linked accounts before transport.
+
+`AlphaLinkCampaignSendCatalogTest` passes **4 tests / 98 assertions**, covering SMTP/domain extraction, common two-label public suffix handling, a selected-SMTP Campaign Test with a fake transport, ambiguous-account rejection, and composer help text. PHPUnit emitted four existing environment warnings. Targeted Pint passes. This is an explicit `APPROVED_DEVIATION` from the historical DMS tag catalog per the user's request; DMS tag names/semantics are not inferred. No migrations or stored campaign schemas changed. No real message or DMS action ran. Commit and deployment verification remain pending.
+
+The previous active objective, E-MDOM-19, remains documented below; its release is already active and verified.
 
 
 ### Selected sending hostnames also serve HTTPS tracking — E-MDOM-19 (2026-11-26)

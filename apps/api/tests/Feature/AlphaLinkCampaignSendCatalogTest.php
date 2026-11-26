@@ -110,6 +110,18 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             'info@example.test',
             $renderer->render('info@[smtp]', ['smtp' => 'workspace-user@example.test', 'domain' => 'relay.example.test']),
         );
+        $this->assertSame(
+            'tenant.onmicrosoft.com|onmicrosoft|SMTP.User',
+            $renderer->render('[api_main_domain]|[brand_api]|[user]', ['smtp' => 'SMTP.User@Tenant.onmicrosoft.com']),
+        );
+        $this->assertSame(
+            'relay.hotmail.co.uk|hotmail|campaign-user',
+            $renderer->render('[api_main_domain]|[brand_api]|[user]', ['smtp' => 'campaign-user@relay.hotmail.co.uk']),
+        );
+        $this->assertSame(
+            '||local-smtp-user',
+            $renderer->render('[api_main_domain]|[brand_api]|[user]', ['smtp' => 'local-smtp-user']),
+        );
         $clickUrl = 'https://baseheavy.example.test/api/v1/campaigns/'.Str::uuid().'/test-click?token=synthetic&signature=synthetic';
         $this->assertSame(
             '<a href="'.$clickUrl.'">Tracked</a><a href="http://outside.example.test/path">External</a>',
@@ -2071,7 +2083,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             'dns' => $selectedIp->dns,
             'ip_type' => 'ipv4',
             'mta_type' => 'smtp',
-            'username' => 'selected-smtp@example.test',
+            'username' => 'selected-smtp@tenant.onmicrosoft.com',
             'name' => 'Selected SMTP account',
             'is_active' => true,
             'user_id' => $routeOwner->getKey(),
@@ -2111,14 +2123,14 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             'ip_type' => 'ipv4',
         ]))->assertOk()
             ->assertJsonPath('data.ips.1.id', $selectedSmtp->getKey())
-            ->assertJsonPath('data.ips.1.username', 'selected-smtp@example.test')
+            ->assertJsonPath('data.ips.1.username', 'selected-smtp@tenant.onmicrosoft.com')
             ->assertJsonPath('data.ips.1.pmta_name', PmtaSmtpConfigBuilder::workspaceVirtualMtaName($selectedIp->ip, $selectedSmtp->getKey()));
 
         $this->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
             'idempotency_key' => (string) Str::uuid(),
             'email_test_addresses' => 'synthetic-smtp-recipient@example.test',
             'header' => "MIME-Version: 1.0\nTo: [to]\nFrom: sender@[domain]\nSubject: [smtp]\nX-virtual-MTA: editable-wrong-route\nDate: [date]",
-            'body' => 'SMTP account=[smtp]; name=[smtp_name]; IP=[ip]',
+            'body' => 'SMTP account=[smtp]; name=[smtp_name]; IP=[ip]; Main=[api_main_domain]; Brand=[brand_api]; User=[user]',
             'send_setup' => [
                 'server_ids' => [(string) $server->getKey()],
                 'ip_ids' => [(int) $selectedSmtp->getKey()],
@@ -2131,8 +2143,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $expectedPmtaName = PmtaSmtpConfigBuilder::workspaceVirtualMtaName($selectedIp->ip, $selectedSmtp->getKey());
         $this->assertCount(1, $sentMessages);
         $this->assertSame('synthetic-smtp-recipient@example.test', $sentMessages[0]['recipient']);
-        $this->assertStringContainsString('Subject: selected-smtp@example.test', $sentMessages[0]['message']);
-        $this->assertStringContainsString('SMTP account=selected-smtp@example.test; name=Selected SMTP account; IP=203.0.113.112', $sentMessages[0]['message']);
+        $this->assertStringContainsString('Subject: selected-smtp@tenant.onmicrosoft.com', $sentMessages[0]['message']);
+        $this->assertStringContainsString('SMTP account=selected-smtp@tenant.onmicrosoft.com; name=Selected SMTP account; IP=203.0.113.112; Main=tenant.onmicrosoft.com; Brand=onmicrosoft; User=selected-smtp', $sentMessages[0]['message']);
         $this->assertStringContainsString('X-virtual-MTA: '.$expectedPmtaName, $sentMessages[0]['message']);
         $this->assertStringNotContainsString('editable-wrong-route', $sentMessages[0]['message']);
         $this->assertSame(1, preg_match_all('/^X-virtual-MTA:/mi', $sentMessages[0]['message']));
@@ -2140,7 +2152,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $snapshot = (string) DB::table('campaign_manual_test_attempts')->value('test_snapshot');
         $virtualMta = json_decode(Crypt::decryptString($snapshot), true, flags: JSON_THROW_ON_ERROR)['virtual_mtas'][0];
         $this->assertSame((string) $selectedSmtp->getKey(), $virtualMta['catalog_id']);
-        $this->assertSame('selected-smtp@example.test', $virtualMta['name']);
+        $this->assertSame('selected-smtp@tenant.onmicrosoft.com', $virtualMta['name']);
         $this->assertSame($expectedPmtaName, $virtualMta['pmta_name']);
         $this->assertSame('smtp-selected.example.test', $virtualMta['domain']);
         $this->assertNotSame($firstSmtp->getKey(), $selectedSmtp->getKey());
@@ -3278,7 +3290,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
             'idempotency_key' => (string) Str::uuid(),
             'email_test_addresses' => 'synthetic-smtp-tag-recipient@example.test',
-            'header' => "MIME-Version: 1.0\nTo: [to]\nFrom: sender@example.test\nSubject: [smtp]",
+            'header' => "MIME-Version: 1.0\nTo: [to]\nFrom: sender@example.test\nSubject: [brand_api]",
             'send_setup' => [
                 'server_ids' => [(string) $server->getKey()],
                 'ip_ids' => [(int) $ip->getKey()],
@@ -3287,7 +3299,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
                 'send_type' => 'delay',
             ],
         ])->assertUnprocessable()->assertJsonValidationErrors('header')
-            ->assertJsonPath('errors.header.0', 'The selected IP has multiple linked SMTP accounts, so [smtp] has no unambiguous value. Link one account to this IP or choose the exact account with Option SMTP.');
+            ->assertJsonPath('errors.header.0', 'The selected IP has multiple linked SMTP accounts, so the SMTP username tags have no unambiguous value. Link one account to this IP or choose the exact account with Option SMTP.');
 
         $this->assertDatabaseCount('campaign_manual_test_attempts', 0);
     }
@@ -4456,7 +4468,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             ->assertSee('alphalink-toast-stack', false)
             ->assertSee('id="campaign-data" tabindex="-1"', false)
             ->assertSee('[smtp] [smtp_name]')
-            ->assertSeeText('[smtp] and [smtp_name] fill message text; Option SMTP selects the outbound relay. Start a saved campaign from My Campaigns after suppression and recipient preparation finish.')
+            ->assertSeeText('[smtp] and [smtp_name] fill message text; [api_main_domain], [brand_api], and [user] use the selected SMTP username. Option SMTP selects the outbound relay. Start a saved campaign from My Campaigns after suppression and recipient preparation finish.')
             ->assertSee('Option IP sends through the selected IP route.', false)
             ->assertSee('that server IP is the PMTA ingress, while the selected route controls outbound delivery.', false)
             ->assertSee('data-campaign-menu-action="create"', false)
@@ -4597,6 +4609,21 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $this->assertStringNotContainsString('HTMLFormElement.prototype.submit.call(form);', $html);
         $this->assertStringNotContainsString('onclick="event.preventDefault();', $html);
         $this->assertStringNotContainsString('campaign-manual-test-button', $html);
+    }
+
+    public function test_campaign_create_page_documents_smtp_identity_tags(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $this->withoutVite();
+
+        $this->actingAs($owner)
+            ->get(route('clean.console.campaigns.create', $workspace->getKey()))
+            ->assertOk()
+            ->assertSee('[api_main_domain] [brand_api] [user]')
+            ->assertSeeText('Domain after @ in the selected SMTP username')
+            ->assertSeeText('brand label without its public suffix')
+            ->assertSeeText('selected SMTP username alias before @');
     }
 
     public function test_snapshot_migration_refuses_to_drop_existing_send_history(): void

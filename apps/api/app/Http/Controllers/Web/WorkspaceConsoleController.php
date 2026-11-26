@@ -1842,8 +1842,8 @@ class WorkspaceConsoleController extends Controller
                 if ($smtpAccountCount !== 1) {
                     throw ValidationException::withMessages([
                         'header' => $smtpAccountCount === 0
-                            ? 'The selected IP has no linked SMTP account to expand [smtp]. Link one active account to this IP or remove the tag. To route through an SMTP account, choose Option SMTP and select it.'
-                            : 'The selected IP has multiple linked SMTP accounts, so [smtp] has no unambiguous value. Link one account to this IP or choose the exact account with Option SMTP.',
+                            ? 'The selected IP has no linked SMTP account to expand [smtp] or the SMTP identity tags. Link one active account to this IP or remove those tags. To route through an SMTP account, choose Option SMTP and select it.'
+                            : 'The selected IP has multiple linked SMTP accounts, so the SMTP username tags have no unambiguous value. Link one account to this IP or choose the exact account with Option SMTP.',
                     ]);
                 }
             }
@@ -2421,7 +2421,7 @@ class WorkspaceConsoleController extends Controller
             $expandedMessage .= "\n".implode("\n", array_column($subjectAssets, 'value'));
         }
 
-        return preg_match('/\[(?:smtp|smtp_name)\]/i', $expandedMessage) === 1;
+        return preg_match('/\[(?:smtp|smtp_name|api_main_domain|brand_api|user)\]/i', $expandedMessage) === 1;
     }
 
     /**
@@ -2707,8 +2707,8 @@ class WorkspaceConsoleController extends Controller
         if ($route === 'ip' && $usesSmtpTag && (int) ($routeChoice['smtp_account_count'] ?? 0) !== 1) {
             throw ValidationException::withMessages([
                 'from_email' => (int) ($routeChoice['smtp_account_count'] ?? 0) === 0
-                    ? 'The saved IP has no linked SMTP account to expand [smtp]. Edit the campaign and link one active account to that IP or remove the tag. To route through SMTP, select Option SMTP.'
-                    : 'The saved IP has multiple linked SMTP accounts, so [smtp] has no unambiguous value. Link one account to the IP or select the exact account with Option SMTP.',
+                    ? 'The saved IP has no linked SMTP account to expand [smtp] or the SMTP identity tags. Edit the campaign and link one active account to that IP or remove those tags. To route through SMTP, select the account with Option SMTP.'
+                    : 'The saved IP has multiple linked SMTP accounts, so the SMTP username tags have no unambiguous value. Link one account to the IP or select the exact account with Option SMTP.',
             ]);
         }
         $virtualMtaName = $route === 'ip'

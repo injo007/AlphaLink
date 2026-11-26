@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkMultiDomainInstallPlanTest extends TestCase
 {
-    public function test_one_physical_ip_keeps_a_single_ehlo_and_has_independent_domain_and_tracking_identities(): void
+    public function test_one_physical_ip_keeps_one_ehlo_and_uses_each_selected_domain_for_tracking(): void
     {
         $plan = (new AlphaLinkMultiDomainInstallPlan)->build([[
             'ip' => '8.8.8.8', 'type' => 'ipv4', 'main' => true,
@@ -29,13 +29,13 @@ class AlphaLinkMultiDomainInstallPlanTest extends TestCase
         $this->assertCount(2, $plan['dns_groups']);
         $this->assertSame('domain-1', $plan['dns_groups'][0]['domain_id']);
         $this->assertCount(2, $plan['dns_groups'][0]['assignments']);
-        foreach ($plan['assignments'] as $assignment) {
-            $this->assertStringEndsWith('.'.$assignment['hostname'], $assignment['tracking_host']);
-            $this->assertStringStartsWith('track-', $assignment['tracking_host']);
-        }
+        $this->assertSame(
+            array_column($plan['assignments'], 'hostname'),
+            array_column($plan['assignments'], 'tracking_host'),
+        );
     }
 
-    public function test_same_sending_hostname_on_two_ips_has_separate_tracking_hosts(): void
+    public function test_same_selected_hostname_remains_the_tracking_host_on_each_ip(): void
     {
         $rows = [
             ['ip' => '8.8.8.8', 'main' => true, 'sub' => 'mail', 'domain_id' => 'domain-1', 'domain' => 'example.com', 'domains' => [['sub' => 'offers', 'domain_id' => 'domain-1', 'domain' => 'example.com']]],
@@ -43,7 +43,8 @@ class AlphaLinkMultiDomainInstallPlanTest extends TestCase
         ];
         $plan = (new AlphaLinkMultiDomainInstallPlan)->build($rows);
 
-        $this->assertNotSame($plan['assignments'][0]['tracking_host'], $plan['assignments'][2]['tracking_host']);
+        $this->assertSame('mail.example.com', $plan['assignments'][0]['tracking_host']);
+        $this->assertSame('mail.example.com', $plan['assignments'][2]['tracking_host']);
     }
 
     public function test_duplicate_hostname_on_one_ip_is_rejected(): void

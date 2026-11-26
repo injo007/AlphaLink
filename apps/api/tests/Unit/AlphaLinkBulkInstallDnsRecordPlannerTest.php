@@ -7,6 +7,19 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkBulkInstallDnsRecordPlannerTest extends TestCase
 {
+    public function test_selected_hostname_is_the_only_a_record_needed_for_https_tracking(): void
+    {
+        $records = (new AlphaLinkBulkInstallDnsRecordPlanner)->recordsForAssignments('example.test', [[
+            'hostname' => 'rico.example.test', 'ip' => '8.8.8.8',
+            'dkim_selector' => 'key1', 'dkim_public_record' => 'v=DKIM1; p=ONE',
+            'tracking_host' => 'rico.example.test',
+        ]], ['tracking' => true, 'imap' => false, 'spf' => true, 'dkim' => true, 'dmarc' => true]);
+
+        $addressRecords = array_values(array_filter($records, static fn (array $record): bool => $record['type'] === 'A'));
+        $this->assertSame([['host' => 'rico', 'address' => '8.8.8.8', 'type' => 'A', 'ttl' => '60']], $addressRecords);
+        $this->assertNotContains('track-rico', array_column($addressRecords, 'host'));
+    }
+
     public function test_multi_domain_records_are_scoped_to_selected_hosts_and_combine_shared_host_ips(): void
     {
         $records = (new AlphaLinkBulkInstallDnsRecordPlanner)->recordsForAssignments('example.test', [

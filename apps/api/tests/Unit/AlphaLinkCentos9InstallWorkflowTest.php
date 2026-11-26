@@ -655,24 +655,23 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             $assignments, [$primary, $secondary],
         );
 
-        $vhost = collect($session->uploads)->first(fn (string $contents): bool => str_contains($contents, 'ServerName track-'));
+        $vhost = collect($session->uploads)->first(fn (string $contents): bool => str_contains($contents, 'ServerName zonevortex.example.test'));
         $this->assertIsString($vhost);
         $this->assertStringContainsString('ServerAlias', $vhost);
-        $this->assertStringContainsString('track-', $vhost);
+        $this->assertStringContainsString('seek.zonevortex.example.test', $vhost);
         $allCommands = implode("\n", $session->commands);
         $this->assertStringContainsString('/ALPHALINK0rprobe', $allCommands);
         $this->assertArrayHasKey('zonevortex.example.test', $dnsWrites);
         $this->assertArrayNotHasKey('zenovara.example.test', $dnsWrites);
         $secondaryHosts = array_map(static fn (array $r): string => $r['type'].':'.$r['host'], $dnsWrites['zonevortex.example.test']);
         $this->assertContains('A:seek', $secondaryHosts);
-        $trackingLabel = 'track-'.substr(hash('sha256', '198.51.100.30'), 0, 10);
-        $this->assertContains('A:'.$trackingLabel, $secondaryHosts);
+        $this->assertNotContains('A:track-'.substr(hash('sha256', '198.51.100.30'), 0, 10), $secondaryHosts);
         $this->assertContains('TXT:al2._domainkey.seek', $secondaryHosts);
         $this->assertContains('TXT:_dmarc.seek', $secondaryHosts);
         $this->assertContains('TXT:seek', $secondaryHosts);
         $this->assertStringNotContainsString('certbot --apache', implode("\n", $session->commands));
         $this->assertTrue(collect($logs)->contains(fn (string $line): bool => str_contains($line, 'continuing installation without domain HTTPS')));
-        $this->assertContains('Provider-managed DNS is managed manually; no provider records will be changed for zenovara.example.test. Missing DNS records will remain pending while server setup continues.', $logs);
+        $this->assertContains('Provider-managed DNS zone for zenovara.example.test is managed manually; selected sending and HTTPS tracking hostnames are checked individually. No provider records will be changed, and setup continues with missing DNS pending.', $logs);
     }
 
     public function test_tracking_https_uses_the_selected_subdomain_without_requiring_dns_provider_access(): void

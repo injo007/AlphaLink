@@ -353,7 +353,7 @@ class AlphaLinkCentos9InstallWorkflow
                 }
                 if (! $selectedDomain->is_our || ! ($domainProviderReady[$dnsGroup['domain_id']] ?? false)) {
                     $log(sprintf(
-                        '%s DNS zone for %s is managed manually; assignment and tracking subdomain hostnames are checked individually. No provider records will be changed, and setup continues with missing DNS pending.',
+                        '%s DNS zone for %s is managed manually; selected sending and HTTPS tracking hostnames are checked individually. No provider records will be changed, and setup continues with missing DNS pending.',
                         $selectedDomain->is_our ? 'Provider-managed' : 'External',
                         $dnsGroup['domain'],
                     ));
@@ -431,7 +431,7 @@ class AlphaLinkCentos9InstallWorkflow
                 $domainProviderReady[$domainId] = ! in_array(false, $states, true);
             }
             if (! $allAssignmentAddressesReady) {
-                $log('Domain HTTPS will be skipped until every sending, tracking, and EHLO A/AAAA record resolves to its selected IP.');
+                $log('Domain HTTPS will be skipped until selected sending/tracking hostnames and EHLO A/AAAA records resolve to their selected IPs.');
             }
         }
 

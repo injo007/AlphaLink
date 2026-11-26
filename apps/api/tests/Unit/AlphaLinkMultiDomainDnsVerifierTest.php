@@ -17,7 +17,6 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
         $dns->method('records')->willReturnCallback(static function (string $hostname, int $type): array {
             return match ([$hostname, $type]) {
                 ['mail.example.test', DNS_A] => [['ip' => '8.8.8.8']],
-                ['track.mail.example.test', DNS_A] => [['ip' => '8.8.8.8']],
                 ['s1._domainkey.mail.example.test', DNS_TXT] => [['txt' => 'v=DKIM1; k=rsa; p=AbCd']],
                 ['_dmarc.mail.example.test', DNS_TXT] => [['txt' => 'v=DMARC1; p=none']],
                 ['mail.example.test', DNS_TXT] => [['txt' => 'v=spf1 ip4:8.8.8.8 -all']],
@@ -34,7 +33,7 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
         $dns = $this->createMock(AlphaLinkPublicDnsRecordResolver::class);
         $dns->method('records')->willReturnCallback(static function (string $hostname, int $type): array {
             return match ([$hostname, $type]) {
-                ['mail.example.test', DNS_A], ['track.mail.example.test', DNS_A] => [['ip' => '8.8.8.8']],
+                ['mail.example.test', DNS_A] => [['ip' => '8.8.8.8']],
                 default => [],
             };
         });
@@ -43,7 +42,7 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
         $this->assertTrue(true);
     }
 
-    public function test_readiness_inspection_does_not_wait_or_fail_when_tracking_a_record_and_auth_txt_are_missing(): void
+    public function test_readiness_inspection_uses_the_selected_hostname_for_tracking_without_waiting_for_auth_txt(): void
     {
         $dns = $this->createMock(AlphaLinkPublicDnsRecordResolver::class);
         $dns->method('records')->willReturnCallback(static function (string $hostname, int $type): array {
@@ -59,12 +58,12 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
         ], ['spf' => true, 'dkim' => true, 'dmarc' => true]);
 
         $this->assertSame(0, $waitCount);
-        $this->assertFalse($readiness[0]['dns_verified']);
+        $this->assertTrue($readiness[0]['dns_verified']);
         $this->assertFalse($readiness[0]['authentication_verified']);
-        $this->assertSame(['track.mail.example.test'], $readiness[0]['missing_address_hosts']);
+        $this->assertSame([], $readiness[0]['missing_address_hosts']);
     }
 
-    public function test_subdomain_assignment_checks_the_full_hostname_and_its_tracking_subdomain(): void
+    public function test_subdomain_assignment_checks_the_selected_hostname_for_sending_and_tracking(): void
     {
         $queried = [];
         $dns = $this->createMock(AlphaLinkPublicDnsRecordResolver::class);
@@ -73,7 +72,6 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
 
             return in_array($hostname, [
                 'rico.carbinlitnings.org',
-                'track-92b714121c.rico.carbinlitnings.org',
             ], true) && $type === DNS_A
                 ? [['ip' => '20.66.51.224']]
                 : [];
@@ -84,7 +82,7 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
                 ...$this->assignment(),
                 'ip' => '20.66.51.224',
                 'hostname' => 'rico.carbinlitnings.org',
-                'tracking_host' => 'track-92b714121c.rico.carbinlitnings.org',
+                'tracking_host' => 'rico.carbinlitnings.org',
                 'ehlo_hostname' => 'rico.carbinlitnings.org',
             ],
         ], ['spf' => true, 'dkim' => true, 'dmarc' => true]);
@@ -92,7 +90,7 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
         $this->assertTrue($readiness[0]['dns_verified']);
         $this->assertSame([], $readiness[0]['missing_address_hosts']);
         $this->assertContains('rico.carbinlitnings.org', $queried);
-        $this->assertContains('track-92b714121c.rico.carbinlitnings.org', $queried);
+        $this->assertNotContains('track-92b714121c.rico.carbinlitnings.org', $queried);
         $this->assertNotContains('carbinlitnings.org', $queried);
     }
 
@@ -100,7 +98,7 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
     {
         $dns = $this->createMock(AlphaLinkPublicDnsRecordResolver::class);
         $dns->method('records')->willReturnCallback(static function (string $hostname, int $type): array {
-            return in_array($hostname, ['mail.example.test', 'track.mail.example.test'], true) && $type === DNS_A
+            return $hostname === 'mail.example.test' && $type === DNS_A
                 ? [['ip' => '8.8.8.8']]
                 : [];
         });
@@ -119,11 +117,11 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
         $trackingLookups = 0;
         $dns = $this->createMock(AlphaLinkPublicDnsRecordResolver::class);
         $dns->method('records')->willReturnCallback(static function (string $hostname, int $type) use (&$trackingLookups): array {
-            if ($hostname === 'track.mail.example.test' && $type === DNS_A) {
+            if ($hostname === 'mail.example.test' && $type === DNS_A) {
                 return ++$trackingLookups < 2 ? [] : [['ip' => '8.8.8.8']];
             }
 
-            return $hostname === 'mail.example.test' && $type === DNS_A ? [['ip' => '8.8.8.8']] : [];
+            return [];
         });
         $waiter = new AlphaLinkDnsPropagationWaiter(2, 0, static fn (int $microseconds): null => null);
 
@@ -141,7 +139,9 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('A/AAAA did not resolve');
-        $this->verifier($dns)->verifyForwardAddresses([$this->assignment()]);
+        $this->verifier($dns)->verifyForwardAddresses([
+            [...$this->assignment(), 'tracking_host' => 'track.mail.example.test'],
+        ]);
     }
 
     public function test_spf_must_authorize_each_assignment_ip(): void
@@ -171,7 +171,7 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
     private function assignment(): array
     {
         return [
-            'ip' => '8.8.8.8', 'hostname' => 'mail.example.test', 'tracking_host' => 'track.mail.example.test',
+            'ip' => '8.8.8.8', 'hostname' => 'mail.example.test', 'tracking_host' => 'mail.example.test',
             'ehlo_hostname' => 'mail.example.test', 'dkim_selector' => 's1',
             'dkim_public_record' => 'v=DKIM1; k=rsa; p=AbCd',
         ];

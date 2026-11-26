@@ -37,9 +37,9 @@ class AlphaLinkMultiDomainDnsVerifier
         $this->propagationWaiter->retry(function () use ($assignments): void {
             foreach ($assignments as $assignment) {
                 [$hostname, $trackingHost, $ip, $ehlo] = $this->validatedIdentity($assignment);
-                $this->assertAddress($hostname, $ip);
-                $this->assertAddress($trackingHost, $ip);
-                $this->assertAddress($ehlo, $ip);
+                foreach (array_unique([$hostname, $trackingHost, $ehlo]) as $addressHost) {
+                    $this->assertAddress($addressHost, $ip);
+                }
             }
         });
     }

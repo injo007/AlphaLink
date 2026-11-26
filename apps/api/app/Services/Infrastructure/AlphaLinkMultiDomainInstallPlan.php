@@ -56,7 +56,9 @@ class AlphaLinkMultiDomainInstallPlan
                 }
                 $seenHostnames[$hostname] = true;
                 $ehloHostname ??= $hostname;
-                $trackingHost = 'track-'.substr(hash('sha256', $ip), 0, 10).'.'.$hostname;
+                // Track through the exact selected sending hostname. External
+                // DNS then needs no generated tracking-only child record.
+                $trackingHost = $hostname;
                 if (strlen($trackingHost) > 253 || filter_var($trackingHost, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false) {
                     throw new InvalidArgumentException('An assignment tracking hostname is too long or invalid.');
                 }

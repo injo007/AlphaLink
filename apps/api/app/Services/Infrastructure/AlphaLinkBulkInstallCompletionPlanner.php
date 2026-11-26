@@ -213,8 +213,9 @@ class AlphaLinkBulkInstallCompletionPlanner
             return;
         }
         if (! is_string($trackingHost) || filter_var($trackingHost, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false
-            || ! str_ends_with(strtolower($trackingHost), '.'.$sendingHostname)) {
-            throw new InvalidArgumentException('An assignment tracking host must be a separate hostname below its sending domain.');
+            || (strcasecmp($trackingHost, $sendingHostname) !== 0
+                && ! str_ends_with(strtolower($trackingHost), '.'.$sendingHostname))) {
+            throw new InvalidArgumentException('An assignment tracking host must match or be below its sending hostname.');
         }
     }
 

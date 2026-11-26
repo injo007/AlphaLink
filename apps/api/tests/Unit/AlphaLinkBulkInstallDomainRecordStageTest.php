@@ -62,7 +62,7 @@ class AlphaLinkBulkInstallDomainRecordStageTest extends TestCase
         $this->stage()->logManualAssignmentRecords($domain, [[
             'hostname' => 'offers.example.test',
             'ip' => '8.8.8.8',
-            'tracking_host' => 'track-123.offers.example.test',
+            'tracking_host' => 'offers.example.test',
             'dkim_selector' => 'key1',
             'dkim_public_record' => 'v=DKIM1; p=PUBLIC',
         ]], ['tracking' => true, 'imap' => false, 'spf' => true, 'dkim' => true, 'dmarc' => true], static function (string $message) use (&$logs): void {
@@ -70,9 +70,10 @@ class AlphaLinkBulkInstallDomainRecordStageTest extends TestCase
         });
 
         $this->assertContains('DNS A offers.example.test -> 8.8.8.8', $logs);
-        $this->assertContains('DNS A track-123.offers.example.test -> 8.8.8.8', $logs);
+        $this->assertSame(1, count(array_filter($logs, static fn (string $line): bool => str_starts_with($line, 'DNS A '))));
+        $this->assertNotContains('DNS A track-123.offers.example.test -> 8.8.8.8', $logs);
         $this->assertContains('DNS TXT key1._domainkey.offers.example.test -> v=DKIM1; p=PUBLIC', $logs);
-        $this->assertNotContains('PRIVATE', implode("\n", $logs));
+        $this->assertStringNotContainsString('PRIVATE', implode("\n", $logs));
     }
 
     public function test_external_installable_domain_receives_records_through_its_provider(): void

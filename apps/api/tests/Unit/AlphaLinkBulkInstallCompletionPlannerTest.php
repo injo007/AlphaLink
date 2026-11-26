@@ -22,6 +22,21 @@ class AlphaLinkBulkInstallCompletionPlannerTest extends TestCase
         ]);
     }
 
+    public function test_selected_sending_hostname_is_valid_as_its_https_tracking_host(): void
+    {
+        $operations = (new AlphaLinkBulkInstallCompletionPlanner)->plan(7, 21, false, [[
+            'main' => true, 'ip' => '8.8.8.8', 'type' => 'ipv4',
+            'domain_id' => 21, 'sub' => 'rico', 'domain' => 'example.test',
+            'tracking_host' => 'rico.example.test',
+        ]], 45, [
+            'tracking' => true, 'proxy' => false, 'imap' => false, 'spf' => true,
+            'dkim' => true, 'dmarc' => true, 'https' => true,
+        ]);
+
+        $this->assertSame('insert_server_ip', $operations[2]['action']);
+        $this->assertSame('rico.example.test', $operations[2]['tracking_host']);
+    }
+
     public function test_it_plans_non_owned_domain_finalization_in_reference_write_order(): void
     {
         $rows = [

@@ -225,7 +225,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                 $additionalARecords = [];
                 $providerAvailable = $selectedDomain->is_our && $this->assignmentDnsWriter->isAssignmentDomainAvailable($selectedDomain);
                 if (! $providerAvailable) {
-                    $log(sprintf('DNS zone %s is managed manually; reinstall will not call its DNS provider. Assignment hostnames and tracking subdomains are checked individually.', $selectedDomain->name));
+                    $log(sprintf('DNS zone %s is managed manually; reinstall will not call its DNS provider. Selected sending and HTTPS tracking hostnames are checked individually.', $selectedDomain->name));
                     $this->domainRecords->logManualAssignmentRecords(
                         $selectedDomain,
                         $records,
@@ -277,7 +277,7 @@ class AlphaLinkCentos9ReinstallWorkflow
             }
             $mainDomainProviderReady = $allAssignmentAddressesReady;
             if (! $allAssignmentAddressesReady) {
-                $log('Domain HTTPS will be skipped until every sending, tracking, and EHLO A/AAAA record resolves to its selected IP.');
+                $log('Domain HTTPS will be skipped until selected sending/tracking hostnames and EHLO A/AAAA records resolve to their selected IPs.');
             }
         } elseif (! $mainDomain->is_our) {
             $log('External DNS is managed manually; reinstall will not call its DNS provider.');

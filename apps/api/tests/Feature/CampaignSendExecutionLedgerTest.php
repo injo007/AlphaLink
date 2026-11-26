@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\ProcessCampaignSendRun;
+use App\Jobs\ProcessCampaignTrackingEventJob;
 use App\Models\AudienceList;
 use App\Models\Campaign;
 use App\Models\CampaignDeliveryAttempt;
@@ -589,6 +590,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
 
     public function test_domain_route_uses_assignment_identity_and_rejects_misaligned_from(): void
     {
+        config(['app.url' => 'https://baseheavy.example.test']);
         $fixture = $this->sendFixture();
         $run = app(PrepareCampaignSendRun::class)->create(
             $fixture['campaign'], $fixture['revision'], $fixture['snapshot'], $fixture['owner'], (string) Str::uuid(),
@@ -631,8 +633,8 @@ class CampaignSendExecutionLedgerTest extends TestCase
             'choices_by_server' => collect([(string) $server->getKey() => collect([$route])]),
             'from_assets' => [], 'subject_assets' => [], 'negative_path' => '',
             'placeholder_rows' => [],
-            'header_template' => "From: sender@[domain]\nSubject: Domain route\nTo: [to]",
-            'body_template' => '<a href="[click_url]">Click</a>',
+            'header_template' => "MIME-Version: 1.0\nContent-Type: text/html; charset=UTF-8\nFrom: sender@[domain]\nSubject: Domain route\nTo: [to]",
+            'body_template' => '<html><body><center><a href="https://[domain]/[rndUN_10]r[token]">Search by skin tone</a><br><a href="https://[domain]/[rndUN_10]u[token]">Unsubscribe</a><br><img src="https://[domain]/[rndUN_10]o[token]" /><img src="https://[domain]/[rndUN_20]o[token]" width="1" height="1" style="display:block;"></center></body></html>',
             'return_path' => 'bounce@[domain]', 'domain_fallback' => 'wrong.example.test',
         ];
 
@@ -669,10 +671,31 @@ class CampaignSendExecutionLedgerTest extends TestCase
             $fixture['contact']->email,
         );
         $this->assertSame('offers.example.test', $pendingTrackingMessage['domain']);
-        $this->assertSame('', $pendingTrackingMessage['unsubscribe_url']);
+        $this->assertStringStartsWith('https://baseheavy.example.test/api/v1/campaigns/', $pendingTrackingMessage['unsubscribe_url']);
+        $this->assertStringContainsString('/unsubscribe?', $pendingTrackingMessage['unsubscribe_url']);
         $this->assertStringContainsString('From: sender@offers.example.test', $pendingTrackingMessage['header']);
-        $this->assertStringNotContainsString('List-Unsubscribe:', $pendingTrackingMessage['header']);
+        $this->assertStringContainsString('List-Unsubscribe: <https://baseheavy.example.test/api/v1/campaigns/', $pendingTrackingMessage['header']);
+        $this->assertStringContainsString('List-Unsubscribe-Post: List-Unsubscribe=One-Click', $pendingTrackingMessage['header']);
         $this->assertStringNotContainsString('https://click.offers.example.test/', $pendingTrackingMessage['body']);
+        $this->assertStringNotContainsString('href=""', $pendingTrackingMessage['body']);
+        $this->assertStringNotContainsString('src=""', $pendingTrackingMessage['body']);
+        $this->assertStringContainsString('href="https://baseheavy.example.test/api/v1/campaigns/'.$fixture['campaign']->getKey().'/'.$fixture['item']->getKey().'/click?', $pendingTrackingMessage['body']);
+        $this->assertStringContainsString('href="https://baseheavy.example.test/api/v1/campaigns/'.$fixture['campaign']->getKey().'/'.$fixture['item']->getKey().'/unsubscribe?', $pendingTrackingMessage['body']);
+        $this->assertStringContainsString('src="https://baseheavy.example.test/api/v1/campaigns/'.$fixture['campaign']->getKey().'/'.$fixture['item']->getKey().'/open?', $pendingTrackingMessage['body']);
+        $this->assertStringContainsString('width="1" height="1" style="display:block;"', $pendingTrackingMessage['body']);
+
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture['offer']->forceFill(['geo_target' => []])->save();
+        Queue::fake();
+        preg_match('#href="(https://baseheavy\.example\.test/api/v1/campaigns/[^\"]+/click\?[^\"]+)"#', $pendingTrackingMessage['body'], $clickMatch);
+        preg_match('#src="(https://baseheavy\.example\.test/api/v1/campaigns/[^\"]+/open\?[^\"]+)"#', $pendingTrackingMessage['body'], $openMatch);
+        $this->assertArrayHasKey(1, $clickMatch);
+        $this->assertArrayHasKey(1, $openMatch);
+        $this->get($clickMatch[1])->assertRedirect('https://example.test');
+        $this->get($openMatch[1])->assertOk()->assertHeader('Content-Type', 'image/png');
+        $this->get($pendingTrackingMessage['unsubscribe_url'])->assertOk()->assertSee('Confirm to stop receiving this offer by email.');
+        Queue::assertPushed(ProcessCampaignTrackingEventJob::class, fn (ProcessCampaignTrackingEventJob $job): bool => $job->data['action'] === 'click');
+        Queue::assertPushed(ProcessCampaignTrackingEventJob::class, fn (ProcessCampaignTrackingEventJob $job): bool => $job->data['action'] === 'open');
     }
 
     public function test_campaign_send_route_allows_normal_retry_room_without_changing_send_idempotency(): void

@@ -1,8 +1,16 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-26
-**Active objective:** Add `[api_main_domain]`, `[brand_api]`, and `[user]` to campaign content using the selected SMTP username.
-**Current implementation status:** E-CAMP-173 adds and documents the three tags in the shared campaign renderer and Create/Edit composer. Synthetic PHP 8.5 tests pass **4 tests / 98 assertions** (four PHPUnit warnings); targeted Pint passes. IP-route Campaign Test requires exactly one linked SMTP account when an SMTP identity tag is used. Commit `2b299709b002fa60b9f73b48553bae7062a2dfa9` is pushed to GitHub `master` and active on AlphaLink production; the guarded deploy and independent release/health checks passed.
+**Active objective:** Restore signed AlphaLink redirect URLs in campaign messages when a selected server/domain tracker is not HTTPS-ready.
+**Current implementation status:** E-TRACK-52 restores signed AlphaLink click, open, and unsubscribe fallbacks, so campaign tags never render as empty URLs while the app host is valid. The exact `[rndUN_10]` and `[rndUN_20]` shapes are covered by a synthetic campaign message regression, and the generated click/open/unsubscribe routes are exercised locally. Push and production deployment checks are pending; no new live email was sent.
+
+### Campaign redirect fallback repair — E-TRACK-52 (2026-11-26)
+
+The user-provided received message has blank `href` and `src` values. The screenshot shows the Redirects page advertising a signed AlphaLink campaign fallback, while the supplied reinstall transcript says domain tracking HTTPS remains pending. In `CampaignSendMessageBuilder`, pending domain tracker readiness previously selected empty strings for click/open/unsubscribe, and unready non-domain trackers were rejected instead of using the displayed fallback.
+
+The builder now selects the verified per-domain/server tracker when ready and otherwise signs click/open/unsubscribe routes on the canonical AlphaLink HTTPS host. `CampaignRedirectUrlPolicy` validates the application URL before generating 10-year signed links. The test uses the reported `[domain]/[rndUN_10]r[token]`, `u[token]`, `o[token]`, and `[rndUN_20]o[token]` shapes, confirms nonempty HTTPS URLs and one-click unsubscribe headers, and exercises the signed click redirect, open pixel, and unsubscribe confirmation page with synthetic fixtures. Focused PHP 8.5 Docker tests and Pint pass; deployment and a fresh real email remain pending. Keep DMS-CAMP-001 IMPLEMENTING and DMS-TRACK-001/003 TESTING; the screenshots, install log, and synthetic tests do not establish a new live recipient flow or DMS parity.
+
+The previous completed objective, E-CAMP-173, remains documented below.
 
 ### Campaign SMTP identity tags — E-CAMP-173 (2026-11-26)
 

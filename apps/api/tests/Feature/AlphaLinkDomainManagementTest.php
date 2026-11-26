@@ -91,8 +91,15 @@ class AlphaLinkDomainManagementTest extends TestCase
             ->assertDontSee('id="only_our" checked', false)
             ->assertDontSee('AlphaLink Sender Domain Verification')
             ->assertSee('ONLY OUR')
+            ->assertSee('id="stat-live-domains"', false)
+            ->assertSee('data-domain-filter="used"', false)
+            ->assertSee('data-domain-filter="redirect"', false)
+            ->assertSee('id="apply-bulk-domain-status"', false)
+            ->assertSee('body: JSON.stringify({ids: rows.map((row) => row.id), status})', false)
+            ->assertSee("setAttribute('aria-label', 'Clear domain search')", false)
+            ->assertSee('q: tableSearch', false)
             ->assertSee('displayLength: 50', false)
-            ->assertSee("$('#only_our').on('click', function () { datatable.ajax.reload(); });", false)
+            ->assertSee("$('#only_our').on('change', function () { setUrlState(); datatable.ajax.reload(); });", false)
             ->assertSee("data.only_our = $('#only_our').is(':checked');", false)
             ->assertSee('ADD NEW DOMAINS')
             ->assertSee('<iframe src="${link}"', false)
@@ -257,6 +264,42 @@ class AlphaLinkDomainManagementTest extends TestCase
             ->assertUnprocessable();
 
         $this->assertSame('new', $domain->fresh()->status);
+    }
+
+    public function test_bulk_status_updates_only_the_selected_workspace_domains_and_audits_each_change(): void
+    {
+        $provider = $this->provider();
+        $first = $this->domain($this->workspace, $provider, 'bulk-one.example', false);
+        $second = $this->domain($this->workspace, $provider, 'bulk-two.example', false);
+        $untouched = $this->domain($this->workspace, $provider, 'bulk-three.example', false);
+        $foreignOwner = User::factory()->create();
+        $foreignWorkspace = $this->workspace('foreign-bulk-domain-workspace', $foreignOwner);
+        $foreign = $this->domain($foreignWorkspace, null, 'foreign-bulk.example', false);
+
+        $this->actingAs($this->owner)
+            ->patchJson(route('console.infrastructure.domains.bulk-status', $this->workspace->getKey()), [
+                'ids' => [$first->getKey(), $second->getKey()],
+                'status' => 'free',
+            ])
+            ->assertOk()
+            ->assertJsonPath('updated', 2)
+            ->assertJsonPath('status', 'free');
+
+        $this->assertSame('free', $first->fresh()->status);
+        $this->assertSame('free', $second->fresh()->status);
+        $this->assertSame('new', $untouched->fresh()->status);
+        $this->assertSame('new', $foreign->fresh()->status);
+        $this->assertSame(2, AuditEvent::query()->whereIn('subject_id', [$first->getKey(), $second->getKey()])
+            ->where('action', 'domain.alphalink_status_changed')->count());
+
+        $this->actingAs($this->owner)
+            ->patchJson(route('console.infrastructure.domains.bulk-status', $this->workspace->getKey()), [
+                'ids' => [$first->getKey(), $foreign->getKey()],
+                'status' => 'used',
+            ])
+            ->assertNotFound();
+
+        $this->assertSame('free', $first->fresh()->status);
     }
 
     public function test_history_table_returns_server_side_datatables_data_only_for_the_selected_workspace_domain(): void

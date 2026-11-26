@@ -29,7 +29,7 @@
     {{-- Main Settings Block with Tabs --}}
     <div class="block command-os-settings-block">
         <div class="command-os-settings-nav-bar">
-            <ul class="nav nav-tabs command-os-settings-tabs align-items-center" data-toggle="tabs" role="tablist">
+            <ul class="nav nav-tabs command-os-settings-tabs align-items-center" data-toggle="tabs" data-settings-tablist="main" role="tablist">
                 <li class="nav-item">
                     <a class="nav-link active" id="settings_tab" href="#settings" role="tab" aria-controls="settings" aria-selected="true">
                         <i class="fas fa-sliders-h mr-2"></i> {{ $canManageGeneralSettings ? 'GENERAL SETTINGS' : 'SERVER / PMTA SETTINGS' }}
@@ -40,10 +40,27 @@
                         <i class="fas fa-globe mr-2"></i> PMTA DOMAINS SETTINGS
                     </a>
                 </li>
+                @if ($canManageGeneralSettings)
+                <li class="nav-item">
+                    <a class="nav-link" id="telegram_connection_tab" href="#telegram-connection" role="tab" aria-controls="telegram-connection" aria-selected="false">
+                        <i class="fab fa-telegram-plane mr-2"></i> TELEGRAM CONNECTION
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="telegram_events_tab" href="#telegram-events" role="tab" aria-controls="telegram-events" aria-selected="false">
+                        <i class="fas fa-bell mr-2"></i> EVENT NOTIFICATIONS
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="telegram_messages_tab" href="#telegram-messages" role="tab" aria-controls="telegram-messages" aria-selected="false">
+                        <i class="fas fa-comment-dots mr-2"></i> CUSTOM MESSAGES
+                    </a>
+                </li>
+                @endif
             </ul>
         </div>
 
-        <div class="block-content tab-content">
+        <div class="block-content tab-content" data-settings-panel-group="main">
             <div class="tab-pane active" id="settings" role="tabpanel" aria-labelledby="settings_tab">
                 @if ($canManageGeneralSettings)
                 @if (session('status'))
@@ -62,8 +79,21 @@
                     </div>
                 @endif
 
-                <form action="{{ route('console.app-settings.update', $workspace->id) }}" method="POST" novalidate>
+                <form id="workspace-settings-form" action="{{ route('console.app-settings.update', $workspace->id) }}" method="POST" novalidate>
                     @csrf
+                    <input type="hidden" name="return_tab" id="settings-return-tab" value="settings">
+
+                    <div class="command-os-settings-sections">
+                        <ul class="nav nav-tabs command-os-settings-tabs command-os-settings-section-tabs align-items-center" data-settings-tablist="sections" role="tablist" aria-label="General settings sections">
+                            <li class="nav-item"><a class="nav-link active" id="settings_core_tab" href="#settings-core" role="tab" aria-controls="settings-core" aria-selected="true" tabindex="0">CORE &amp; IDENTIFIERS</a></li>
+                            <li class="nav-item"><a class="nav-link" id="settings_firewall_tab" href="#settings-firewall" role="tab" aria-controls="settings-firewall" aria-selected="false" tabindex="-1">FIREWALL &amp; ACCESS</a></li>
+                            <li class="nav-item"><a class="nav-link" id="settings_traffic_tab" href="#settings-traffic" role="tab" aria-controls="settings-traffic" aria-selected="false" tabindex="-1">TRAFFIC DEFENSE</a></li>
+                            <li class="nav-item"><a class="nav-link" id="settings_pmta_tab" href="#settings-pmta" role="tab" aria-controls="settings-pmta" aria-selected="false" tabindex="-1">PMTA &amp; MAIL</a></li>
+                            <li class="nav-item"><a class="nav-link" id="settings_backup_tab" href="#settings-backup" role="tab" aria-controls="settings-backup" aria-selected="false" tabindex="-1">BACKUP &amp; STORAGE</a></li>
+                            <li class="nav-item"><a class="nav-link" id="settings_integrations_tab" href="#settings-integrations" role="tab" aria-controls="settings-integrations" aria-selected="false" tabindex="-1">INTEGRATIONS</a></li>
+                        </ul>
+                        <div class="tab-content" data-settings-panel-group="sections">
+                    <div class="tab-pane active" id="settings-core" role="tabpanel" aria-labelledby="settings_core_tab">
 
                     {{-- 1. Core Tokens & Identifiers --}}
                     <div class="command-os-settings-card">
@@ -128,6 +158,8 @@
                         </div>
                     </div>
 
+                    </div>
+                    <div class="tab-pane" id="settings-firewall" role="tabpanel" aria-labelledby="settings_firewall_tab" hidden>
                     {{-- 2. Firewall & Access Control --}}
                     <div class="command-os-settings-card">
                         <div class="command-os-settings-card-header">
@@ -182,6 +214,8 @@
                         </div>
                     </div>
 
+                    </div>
+                    <div class="tab-pane" id="settings-traffic" role="tabpanel" aria-labelledby="settings_traffic_tab" hidden>
                     {{-- 3. Traffic & Anti-Bot Defense --}}
                     <div class="command-os-settings-card">
                         <div class="command-os-settings-card-header">
@@ -243,6 +277,8 @@
                         </div>
                     </div>
 
+                    </div>
+                    <div class="tab-pane" id="settings-pmta" role="tabpanel" aria-labelledby="settings_pmta_tab" hidden>
                     {{-- 4. PMTA & Mail Routing --}}
                     <div class="command-os-settings-card">
                         <div class="command-os-settings-card-header">
@@ -315,6 +351,8 @@
                         </div>
                     </div>
 
+                    </div>
+                    <div class="tab-pane" id="settings-backup" role="tabpanel" aria-labelledby="settings_backup_tab" hidden>
                     {{-- 5. Automated Backup & Storage --}}
                     <div class="command-os-settings-card">
                         <div class="command-os-settings-card-header">
@@ -370,6 +408,8 @@
                         </div>
                     </div>
 
+                    </div>
+                    <div class="tab-pane" id="settings-integrations" role="tabpanel" aria-labelledby="settings_integrations_tab" hidden>
                     {{-- 6. Third-Party Integrations & APIs --}}
                     <div class="command-os-settings-card">
                         <div class="command-os-settings-card-header">
@@ -379,142 +419,13 @@
                                 </div>
                                 <div class="command-os-settings-card-titles">
                                     <h3>THIRD-PARTY INTEGRATIONS &amp; APIS</h3>
-                                    <p>Telegram alerts, Bitly link shortener, Imgur image hosting, and NS.HN API</p>
+                                    <p>Bitly link shortener, Imgur image hosting, and NS.HN API</p>
                                 </div>
                             </div>
                             <div class="command-os-settings-card-tag">CONNECTIVITY</div>
                         </div>
                         <div class="command-os-settings-card-body">
-                            {{-- Telegram Alerts (4 equal columns) --}}
-                            <div class="row">
-                                <div class="col-sm-12 col-md-6 col-lg-3">
-                                    @include('console.app-settings.partials.field', ['field' => 'telegram_bot_name', 'label' => 'TELEGRAM BOT NAME', 'type' => 'text', 'secret' => false])
-                                </div>
-                                <div class="col-sm-12 col-md-6 col-lg-3">
-                                    @include('console.app-settings.partials.field', ['field' => 'telegram_bot_token', 'label' => 'TELEGRAM BOT TOKEN', 'type' => 'text', 'secret' => true])
-                                </div>
-                                <div class="col-sm-12 col-md-6 col-lg-3">
-                                    @include('console.app-settings.partials.field', ['field' => 'telegram_channel', 'label' => 'TELEGRAM CHANNEL ID', 'type' => 'text', 'secret' => false])
-                                </div>
-                                <div class="col-sm-12 col-md-6 col-lg-3">
-                                    @include('console.app-settings.partials.field', ['field' => 'telegram_channel_it', 'label' => 'TELEGRAM IT CHANNEL ID', 'type' => 'text', 'secret' => false])
-                                </div>
-                            </div>
-
-                            @php
-                                $tgCfg = $telegramConfig ?? app(\App\Services\Telegram\TelegramAlertService::class)->getConfigForWorkspace($workspace);
-                                $tgEvents = $tgCfg['event_rules'] ?? [];
-                            @endphp
-
-                            <div class="command-os-tg-events-panel mt-3 p-3" id="telegram-event-notifications-panel"
-                                 data-save-url="{{ route('console.app-settings.telegram.save', $workspace->getKey()) }}"
-                                 data-test-url="{{ route('console.app-settings.telegram.test', $workspace->getKey()) }}">
-                                <div class="d-flex flex-wrap align-items-center justify-content-between mb-3" style="gap: 10px;">
-                                    <div>
-                                        <div class="d-flex align-items-center" style="gap: 8px;">
-                                            <span class="command-os-tg-icon-pill"><i class="fab fa-telegram-plane"></i></span>
-                                            <strong style="font-size: 0.875rem; letter-spacing: 0.02em;">TELEGRAM EVENT NOTIFICATIONS &amp; CUSTOM MESSAGES</strong>
-                                            @if (!empty($tgCfg['ready']))
-                                                <span class="badge-command-pill" style="color: #10b981; font-weight: 700;">
-                                                    <i class="fas fa-check-circle mr-1"></i> BOT &amp; CHANNEL READY
-                                                </span>
-                                            @else
-                                                <span class="badge-command-pill" style="color: #f59e0b; font-weight: 700;">
-                                                    <i class="fas fa-exclamation-triangle mr-1"></i> SAVE BOT TOKEN &amp; CHANNEL FIRST
-                                                </span>
-                                            @endif
-                                        </div>
-                                        <p class="text-muted small mb-0 mt-1">Enable or customize the exact Telegram message template sent for Login, Lead conversions, Backups, and Offer status changes.</p>
-                                    </div>
-                                    <button type="button" class="btn-command-primary" id="btn-save-tg-event-rules" style="height: 36px; padding: 0 16px; font-size: 0.78rem;" @if(!$canManageGeneralSettings) disabled @endif>
-                                        <i class="fas fa-save mr-1"></i> SAVE ALERT RULES
-                                    </button>
-                                </div>
-
-                                <div id="tg-events-status-banner" class="alert d-none mb-3 py-2 small" role="status"></div>
-
-                                <div class="row">
-                                    @foreach ($tgEvents as $eventKey => $eventRule)
-                                        <div class="col-12 col-xl-6 mb-3">
-                                            <div class="command-os-tg-event-card p-3 h-100 d-flex flex-column" data-tg-event-card="{{ $eventKey }}">
-                                                <div class="d-flex align-items-start justify-content-between mb-2" style="gap: 10px;">
-                                                    <div class="d-flex align-items-center" style="gap: 10px;">
-                                                        <span class="command-os-tg-event-icon"><i class="{{ $eventRule['icon'] ?? 'fas fa-bell' }}"></i></span>
-                                                        <div>
-                                                            <div class="font-w700" style="font-size: 0.85rem;">{{ $eventRule['label'] }}</div>
-                                                            <div class="text-muted" style="font-size: 0.73rem;">{{ $eventRule['description'] }}</div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="custom-control custom-switch flex-shrink-0">
-                                                        <input type="hidden" name="event_alert_rules[{{ $eventKey }}][enabled]" value="0">
-                                                        <input type="checkbox"
-                                                               class="custom-control-input tg-event-enabled-toggle"
-                                                               id="tg-event-enabled-{{ $eventKey }}"
-                                                               name="event_alert_rules[{{ $eventKey }}][enabled]"
-                                                               value="1"
-                                                               data-tg-event-enabled="{{ $eventKey }}"
-                                                               @checked(!empty($eventRule['enabled']))
-                                                               @if(!$canManageGeneralSettings) disabled @endif>
-                                                        <label class="custom-control-label small font-w700" for="tg-event-enabled-{{ $eventKey }}">
-                                                            {{ !empty($eventRule['enabled']) ? 'ON' : 'OFF' }}
-                                                        </label>
-                                                    </div>
-                                                </div>
-
-                                                <div class="d-flex flex-wrap align-items-center justify-content-between mb-2" style="gap: 8px;">
-                                                    <div class="d-flex align-items-center" style="gap: 6px;">
-                                                        <label class="mb-0 small font-w600 text-muted" for="tg-event-channel-{{ $eventKey }}">Channel:</label>
-                                                        <select id="tg-event-channel-{{ $eventKey }}"
-                                                                name="event_alert_rules[{{ $eventKey }}][target_channel]"
-                                                                class="form-control form-control-sm command-os-tg-select"
-                                                                data-tg-event-channel="{{ $eventKey }}"
-                                                                @if(!$canManageGeneralSettings) disabled @endif>
-                                                            <option value="main" @selected(($eventRule['target_channel'] ?? 'main') === 'main')>Main Channel</option>
-                                                            <option value="it" @selected(($eventRule['target_channel'] ?? 'main') === 'it')>IT Channel</option>
-                                                            <option value="both" @selected(($eventRule['target_channel'] ?? 'main') === 'both')>Both Channels</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="d-flex align-items-center" style="gap: 6px;">
-                                                        <button type="button"
-                                                                class="btn-command-action tg-event-test-btn"
-                                                                style="height: 28px; padding: 0 10px; font-size: 0.72rem;"
-                                                                data-tg-test-event="{{ $eventKey }}"
-                                                                @if(!$canManageGeneralSettings) disabled @endif>
-                                                            <i class="fas fa-paper-plane mr-1"></i> Test
-                                                        </button>
-                                                        <button type="button"
-                                                                class="btn-command-action tg-event-reset-btn"
-                                                                style="height: 28px; padding: 0 10px; font-size: 0.72rem;"
-                                                                data-tg-reset-event="{{ $eventKey }}"
-                                                                data-default-template="{{ $eventRule['default_template'] }}"
-                                                                @if(!$canManageGeneralSettings) disabled @endif>
-                                                            <i class="fas fa-undo mr-1"></i> Reset
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                <div class="mb-2 d-flex flex-wrap" style="gap: 4px;">
-                                                    @foreach ($eventRule['placeholders'] ?? [] as $ph)
-                                                        <button type="button"
-                                                                class="command-os-tg-chip"
-                                                                data-tg-insert-chip="{{ $ph }}"
-                                                                data-tg-target="{{ $eventKey }}"
-                                                                title="Insert {{ $ph }} into message template">{{ $ph }}</button>
-                                                    @endforeach
-                                                </div>
-
-                                                <textarea id="tg-event-template-{{ $eventKey }}"
-                                                          name="event_alert_rules[{{ $eventKey }}][custom_template]"
-                                                          class="form-control form-control-sm command-os-tg-textarea mt-auto"
-                                                          rows="5"
-                                                          maxlength="1500"
-                                                          data-tg-event-template="{{ $eventKey }}"
-                                                          @if(!$canManageGeneralSettings) readonly @endif>{{ $eventRule['custom_template'] }}</textarea>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
+                            <p class="text-muted small mb-0">Telegram bot connection, event notifications, and custom messages are managed in the Telegram tab.</p>
 
                             <hr class="command-os-divider">
 
@@ -583,6 +494,9 @@
                             </div>
                         </div>
                     </div>
+                    </div>
+                        </div>
+                    </div>
 
                     {{-- Sticky Floating Save Settings Bar --}}
                     <div class="command-os-settings-footer-bar">
@@ -601,6 +515,138 @@
             </div>
 
             @include('console.app-settings.partials.pmta-domains')
+            @if ($canManageGeneralSettings)
+            @php
+                $tgCfg = $telegramConfig ?? app(\App\Services\Telegram\TelegramAlertService::class)->getConfigForWorkspace($workspace);
+                $tgEvents = $tgCfg['event_rules'] ?? [];
+            @endphp
+            <div class="tab-pane" id="telegram-connection" role="tabpanel" aria-labelledby="telegram_connection_tab">
+                <section class="command-os-settings-card">
+                    <header class="command-os-settings-card-header">
+                        <div class="command-os-settings-card-title-group">
+                            <span class="command-os-settings-card-icon"><i class="fab fa-telegram-plane"></i></span>
+                            <div class="command-os-settings-card-titles">
+                                <h3>TELEGRAM CONNECTION</h3>
+                                <p>Configure the workspace bot and destination channels for Telegram notifications.</p>
+                            </div>
+                        </div>
+                        @if (!empty($tgCfg['ready']))
+                            <span class="badge-command-pill text-success"><i class="fas fa-check-circle mr-1"></i> BOT &amp; CHANNEL READY</span>
+                        @else
+                            <span class="badge-command-pill text-warning"><i class="fas fa-exclamation-triangle mr-1"></i> BOT AND CHANNEL REQUIRED</span>
+                        @endif
+                    </header>
+                    <div class="command-os-settings-card-body">
+                        <div class="row">
+                            <div class="col-sm-12 col-md-6 col-lg-3">
+                                @include('console.app-settings.partials.field', ['field' => 'telegram_bot_name', 'label' => 'TELEGRAM BOT NAME', 'type' => 'text', 'secret' => false, 'form' => 'workspace-settings-form'])
+                            </div>
+                            <div class="col-sm-12 col-md-6 col-lg-3">
+                                @include('console.app-settings.partials.field', ['field' => 'telegram_bot_token', 'label' => 'TELEGRAM BOT TOKEN', 'type' => 'text', 'secret' => true, 'form' => 'workspace-settings-form'])
+                            </div>
+                            <div class="col-sm-12 col-md-6 col-lg-3">
+                                @include('console.app-settings.partials.field', ['field' => 'telegram_channel', 'label' => 'TELEGRAM CHANNEL ID', 'type' => 'text', 'secret' => false, 'form' => 'workspace-settings-form'])
+                            </div>
+                            <div class="col-sm-12 col-md-6 col-lg-3">
+                                @include('console.app-settings.partials.field', ['field' => 'telegram_channel_it', 'label' => 'TELEGRAM IT CHANNEL ID', 'type' => 'text', 'secret' => false, 'form' => 'workspace-settings-form'])
+                            </div>
+                        </div>
+                        <div class="command-os-settings-footer-bar mt-2">
+                            <div class="command-os-footer-status"><span class="command-os-pulse-dot"></span><span>TELEGRAM CONNECTION SETTINGS</span></div>
+                            <button type="submit" form="workspace-settings-form" class="btn btn-primary command-os-btn-save-settings" onclick="document.getElementById('settings-return-tab').value='telegram-connection';">
+                                <i class="fas fa-save mr-2"></i> SAVE TELEGRAM CONNECTION
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="tab-pane" id="telegram-events" role="tabpanel" aria-labelledby="telegram_events_tab"
+                 data-save-url="{{ route('console.app-settings.telegram.save', $workspace->getKey()) }}"
+                 data-test-url="{{ route('console.app-settings.telegram.test', $workspace->getKey()) }}">
+                <section class="command-os-settings-card command-os-tg-events-panel">
+                    <header class="command-os-settings-card-header">
+                        <div class="command-os-settings-card-title-group">
+                            <span class="command-os-settings-card-icon"><i class="fas fa-bell"></i></span>
+                            <div class="command-os-settings-card-titles"><h3>TELEGRAM EVENT NOTIFICATIONS</h3><p>Choose the events AlphaLink sends to your Telegram channels.</p></div>
+                        </div>
+                    </header>
+                    <div class="command-os-settings-card-body">
+                        <div class="d-flex flex-wrap justify-content-end mb-3" style="gap:8px;">
+                            <button type="button" class="btn-command-primary save-tg-event-rules" id="btn-save-tg-event-rules"><i class="fas fa-save mr-1"></i> SAVE EVENT RULES</button>
+                        </div>
+                        <div class="row">
+                            @foreach ($tgEvents as $eventKey => $eventRule)
+                            <div class="col-12 col-xl-6 mb-3">
+                                <article class="command-os-tg-event-card p-3 h-100 d-flex flex-column" data-tg-rule-card="{{ $eventKey }}">
+                                    <div class="d-flex align-items-start justify-content-between mb-2" style="gap:10px;">
+                                        <div class="d-flex align-items-center" style="gap:10px;">
+                                            <span class="command-os-tg-event-icon"><i class="{{ $eventRule['icon'] ?? 'fas fa-bell' }}"></i></span>
+                                            <div><div class="font-w700" style="font-size:.85rem;">{{ $eventRule['label'] }}</div><div class="text-muted" style="font-size:.73rem;">{{ $eventRule['description'] }}</div></div>
+                                        </div>
+                                        <div class="custom-control custom-switch flex-shrink-0">
+                                            <input type="checkbox" class="custom-control-input tg-event-enabled-toggle" id="tg-event-enabled-{{ $eventKey }}" data-tg-event-enabled="{{ $eventKey }}" @checked(!empty($eventRule['enabled']))>
+                                            <label class="custom-control-label small font-w700" for="tg-event-enabled-{{ $eventKey }}">{{ !empty($eventRule['enabled']) ? 'ON' : 'OFF' }}</label>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex flex-wrap align-items-center justify-content-between mt-auto" style="gap:8px;">
+                                        <div class="d-flex align-items-center" style="gap:6px;">
+                                            <label class="mb-0 small font-w600 text-muted" for="tg-event-channel-{{ $eventKey }}">Channel:</label>
+                                            <select id="tg-event-channel-{{ $eventKey }}" class="form-control form-control-sm command-os-tg-select" data-tg-event-channel="{{ $eventKey }}">
+                                                <option value="main" @selected(($eventRule['target_channel'] ?? 'main') === 'main')>Main Channel</option>
+                                                <option value="it" @selected(($eventRule['target_channel'] ?? 'main') === 'it')>IT Channel</option>
+                                                <option value="both" @selected(($eventRule['target_channel'] ?? 'main') === 'both')>Both Channels</option>
+                                            </select>
+                                        </div>
+                                        <button type="button" class="btn-command-action tg-event-test-btn" data-tg-test-event="{{ $eventKey }}"><i class="fas fa-paper-plane mr-1"></i> Test</button>
+                                    </div>
+                                </article>
+                            </div>
+                            @endforeach
+                        </div>
+                        <div class="alert d-none mb-0 py-2 small" data-tg-status-banner role="status" aria-live="polite"></div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="tab-pane" id="telegram-messages" role="tabpanel" aria-labelledby="telegram_messages_tab">
+                <section class="command-os-settings-card command-os-tg-events-panel">
+                    <header class="command-os-settings-card-header">
+                        <div class="command-os-settings-card-title-group">
+                            <span class="command-os-settings-card-icon"><i class="fas fa-comment-dots"></i></span>
+                            <div class="command-os-settings-card-titles"><h3>TELEGRAM CUSTOM MESSAGES</h3><p>Edit message templates and insert supported event placeholders.</p></div>
+                        </div>
+                    </header>
+                    <div class="command-os-settings-card-body">
+                        <div class="d-flex flex-wrap justify-content-end mb-3" style="gap:8px;">
+                            <button type="button" class="btn-command-primary save-tg-event-rules" id="btn-save-tg-message-rules"><i class="fas fa-save mr-1"></i> SAVE CUSTOM MESSAGES</button>
+                        </div>
+                        <div class="row">
+                            @foreach ($tgEvents as $eventKey => $eventRule)
+                            <div class="col-12 col-xl-6 mb-3">
+                                <article class="command-os-tg-event-card p-3 h-100 d-flex flex-column" data-tg-message-card="{{ $eventKey }}">
+                                    <div class="d-flex align-items-start justify-content-between mb-2" style="gap:10px;">
+                                        <div class="d-flex align-items-center" style="gap:10px;">
+                                            <span class="command-os-tg-event-icon"><i class="{{ $eventRule['icon'] ?? 'fas fa-bell' }}"></i></span>
+                                            <div><div class="font-w700" style="font-size:.85rem;">{{ $eventRule['label'] }} message</div><div class="text-muted" style="font-size:.73rem;">Use placeholders to add event details.</div></div>
+                                        </div>
+                                        <button type="button" class="btn-command-action tg-event-reset-btn" data-tg-reset-event="{{ $eventKey }}" data-default-template="{{ $eventRule['default_template'] }}"><i class="fas fa-undo mr-1"></i> Reset</button>
+                                    </div>
+                                    <div class="mb-2 d-flex flex-wrap" style="gap:4px;">
+                                        @foreach ($eventRule['placeholders'] ?? [] as $ph)
+                                        <button type="button" class="command-os-tg-chip" data-tg-insert-chip="{{ $ph }}" data-tg-target="{{ $eventKey }}" title="Insert {{ $ph }} into message template">{{ $ph }}</button>
+                                        @endforeach
+                                    </div>
+                                    <textarea id="tg-event-template-{{ $eventKey }}" class="form-control form-control-sm command-os-tg-textarea mt-auto" rows="5" maxlength="1500" data-tg-event-template="{{ $eventKey }}">{{ $eventRule['custom_template'] }}</textarea>
+                                </article>
+                            </div>
+                            @endforeach
+                        </div>
+                        <div class="alert d-none mb-0 py-2 small" data-tg-status-banner role="status" aria-live="polite"></div>
+                    </div>
+                </section>
+            </div>
+            @endif
         </div>
     </div>
 </div>
@@ -608,6 +654,14 @@
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset('vendor/select2/4.0.13/select2.min.css') }}">
+    <style>
+        .command-os-settings-tabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; }
+        .command-os-settings-tabs .nav-link { white-space: nowrap; }
+        .command-os-settings-tabs:focus-within { scroll-behavior: smooth; }
+        .command-os-settings-section-tabs { margin: 0 0 14px; }
+        .command-os-settings-section-tabs .nav-link { font-size: 11px; padding: 9px 12px; }
+        @media (prefers-reduced-motion: reduce) { .command-os-settings-tabs:focus-within { scroll-behavior: auto; } }
+    </style>
 @endpush
 
 @push('scripts')
@@ -640,9 +694,62 @@
                 $(this).select2({ allowClear: true, placeholder: placeholders[this.id], tags: true, width: '100%' });
             });
 
-            if (window.location.hash === '#pmta_domains') {
-                $('#pmta_domains_tab').tab('show');
-            }
+            const settingsTablists = document.querySelectorAll('[data-settings-tablist]');
+            const activateSettingsTab = (tab, updateUrl = true) => {
+                const tablist = tab.closest('[data-settings-tablist]');
+                if (!tablist) return;
+                const group = tablist.dataset.settingsTablist;
+                const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+                tabs.forEach((item) => {
+                    const active = item === tab;
+                    item.classList.toggle('active', active);
+                    item.setAttribute('aria-selected', String(active));
+                    item.tabIndex = active ? 0 : -1;
+                    const panel = document.getElementById(item.getAttribute('aria-controls'));
+                    if (panel && panel.closest('[data-settings-panel-group]')?.dataset.settingsPanelGroup === group) {
+                        panel.classList.toggle('active', active);
+                        panel.hidden = !active;
+                    }
+                });
+                if (updateUrl) window.history.replaceState({}, '', tab.getAttribute('href'));
+                const returnTab = document.getElementById('settings-return-tab');
+                if (returnTab && group === 'sections') {
+                    const mainTab = document.querySelector('[data-settings-tablist="main"] [aria-selected="true"]');
+                    if (mainTab?.getAttribute('aria-controls') === 'settings') returnTab.value = tab.getAttribute('aria-controls');
+                }
+                if (returnTab && group === 'main') {
+                    const sectionTab = document.querySelector('[data-settings-tablist="sections"] [aria-selected="true"]');
+                    returnTab.value = tab.getAttribute('aria-controls') === 'settings'
+                        ? (sectionTab?.getAttribute('aria-controls') || 'settings')
+                        : tab.getAttribute('aria-controls');
+                }
+            };
+
+            settingsTablists.forEach((tablist) => {
+                tablist.addEventListener('click', (event) => {
+                    const tab = event.target.closest('[role="tab"]');
+                    if (!tab || !tablist.contains(tab)) return;
+                    event.preventDefault();
+                    activateSettingsTab(tab);
+                });
+                tablist.addEventListener('keydown', (event) => {
+                    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+                    const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+                    const index = tabs.indexOf(document.activeElement);
+                    if (index < 0 || tabs.length === 0) return;
+                    event.preventDefault();
+                    const next = event.key === 'Home' ? 0 : (event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length);
+                    tabs[next].focus();
+                    activateSettingsTab(tabs[next]);
+                });
+            });
+            const requestedHash = window.location.hash === '#telegram' ? '#telegram-events' : window.location.hash;
+            settingsTablists.forEach((tablist) => {
+                const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+                const requested = tabs.find((tab) => tab.getAttribute('href') === requestedHash);
+                const active = requested || tabs.find((tab) => tab.getAttribute('aria-selected') === 'true') || tabs[0];
+                if (active) activateSettingsTab(active, false);
+            });
         });
 
         document.addEventListener('click', async function (event) {
@@ -714,12 +821,12 @@
         // Command OS Telegram Event Notifications & Backup Runner
         (function () {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-            const tgPanel = document.getElementById('telegram-event-notifications-panel');
-            const banner = document.getElementById('tg-events-status-banner');
+            const tgPanel = document.getElementById('telegram-events');
             const backupBtn = document.getElementById('btn-run-workspace-backup');
             const backupStatus = document.getElementById('backup-run-status');
 
             const showTgBanner = (msg, ok = true) => {
+                const banner = document.querySelector('.command-os-settings-block .tab-pane.active [data-tg-status-banner]');
                 if (!banner) return;
                 banner.textContent = msg;
                 banner.className = `alert mb-3 py-2 small ${ok ? 'alert-success' : 'alert-danger'}`;
@@ -759,18 +866,19 @@
 
             const collectEventPayload = () => {
                 const events = {};
-                document.querySelectorAll('[data-tg-event-card]').forEach((card) => {
-                    const key = card.dataset.tgEventCard;
+                document.querySelectorAll('[data-tg-rule-card]').forEach((card) => {
+                    const key = card.dataset.tgRuleCard;
+                    const template = document.querySelector('[data-tg-event-template="' + key + '"]');
                     events[key] = {
-                        enabled: Boolean(card.querySelector(`[data-tg-event-enabled="${key}"]`)?.checked),
-                        target_channel: card.querySelector(`[data-tg-event-channel="${key}"]`)?.value || 'main',
-                        custom_template: card.querySelector(`[data-tg-event-template="${key}"]`)?.value || '',
+                        enabled: Boolean(card.querySelector('[data-tg-event-enabled="' + key + '"]')?.checked),
+                        target_channel: card.querySelector('[data-tg-event-channel="' + key + '"]')?.value || 'main',
+                        custom_template: template?.value || '',
                     };
                 });
                 return events;
             };
 
-            document.getElementById('btn-save-tg-event-rules')?.addEventListener('click', async function () {
+            document.querySelectorAll('.save-tg-event-rules').forEach((saveButton) => saveButton.addEventListener('click', async function () {
                 if (!tgPanel) return;
                 const btn = this;
                 btn.disabled = true;
@@ -792,13 +900,13 @@
                 } finally {
                     btn.disabled = false;
                 }
-            });
+            }));
 
             document.querySelectorAll('[data-tg-test-event]').forEach((btn) => {
                 btn.addEventListener('click', async () => {
                     if (!tgPanel) return;
                     const key = btn.dataset.tgTestEvent;
-                    const card = btn.closest('[data-tg-event-card]');
+                    const card = btn.closest('[data-tg-rule-card]');
                     btn.disabled = true;
                     try {
                         const res = await fetch(tgPanel.dataset.testUrl, {
@@ -811,7 +919,7 @@
                             body: JSON.stringify({
                                 event_type: key,
                                 target_channel: card?.querySelector(`[data-tg-event-channel="${key}"]`)?.value || 'main',
-                                custom_template: card?.querySelector(`[data-tg-event-template="${key}"]`)?.value || '',
+                                custom_template: document.querySelector('[data-tg-event-template="' + key + '"]')?.value || '',
                             }),
                         });
                         const body = await res.json().catch(() => ({}));

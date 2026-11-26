@@ -54,16 +54,49 @@ class AlphaLinkAppSettingsPageTest extends TestCase
             ->assertSee('readonly aria-readonly="true"', false)
             ->assertSee('This destination is fixed.')
             ->assertDontSee('APP SETTINGS')
-            ->assertSee('id="nav-submenu-miscellaneous"', false)
             ->assertSee('href="'.$settingsUrl.'"', false)
             ->assertSee('GENERAL SETTINGS')
             ->assertSee('PMTA WEB MONITOR PUBLIC PORT')
             ->assertSee('PMTA DOMAINS SETTINGS')
+            ->assertSee('TELEGRAM CONNECTION')
+            ->assertSee('EVENT NOTIFICATIONS')
+            ->assertSee('CUSTOM MESSAGES')
+            ->assertSee('href="#telegram-events"', false)
+            ->assertSee('href="#telegram-messages"', false)
+            ->assertSee('href="#settings-firewall"', false)
+            ->assertSee('href="#settings-traffic"', false)
+            ->assertSee('href="#settings-pmta"', false)
+            ->assertSee('href="#settings-backup"', false)
+            ->assertSee('href="#settings-integrations"', false)
+            ->assertSee('data-settings-tablist="main"', false)
+            ->assertSee('data-settings-tablist="sections"', false)
             ->assertSee('LOAD SETTINGS')
             ->assertSee('SAVE SETTINGS')
-            ->assertSee('AlphaLink callback not implemented.')
             ->assertDontSee('Saved values are workspace-scoped.')
             ->assertSee('id="pmta_domain_data"', false);
+    }
+
+    public function test_telegram_connection_save_returns_to_its_dedicated_settings_tab(): void
+    {
+        $response = $this->post($this->settingsPage(), [
+            'settings' => ['telegram_bot_name' => 'synthetic-alert-bot'],
+            'return_tab' => 'telegram-connection',
+        ]);
+
+        $response->assertRedirect($this->settingsPage().'#telegram-connection');
+        $this->assertDatabaseHas('workspace_app_settings', [
+            'workspace_id' => $this->workspace->getKey(),
+        ]);
+    }
+
+    public function test_general_settings_section_save_returns_to_the_selected_section(): void
+    {
+        $response = $this->post($this->settingsPage(), [
+            'settings' => ['app_name' => 'Synthetic AlphaLink'],
+            'return_tab' => 'settings-firewall',
+        ]);
+
+        $response->assertRedirect($this->settingsPage().'#settings-firewall');
     }
 
     public function test_reference_general_settings_normalize_values_and_encrypt_all_secret_fields(): void
@@ -255,7 +288,7 @@ class AlphaLinkAppSettingsPageTest extends TestCase
 
     public function test_non_admin_workspace_members_cannot_reveal_saved_setting_secrets(): void
     {
-        $member = User::factory()->create();
+        $member = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($member->getKey(), ['role' => 'operator']);
         $this->workspace->infrastructureSettings()->create(['tracking_ingest_key' => 'synthetic-secret']);
         $this->actingAs($member);

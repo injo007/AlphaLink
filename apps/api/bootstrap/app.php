@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\DispatchManagedServerPmtaFeedback;
+use App\Console\Commands\PruneReturnedServerTrackingEndpoints;
 use App\Console\Commands\PruneWorkspaceSpfSearchRuns;
 use App\Console\Commands\RecoverCampaignSends;
 use App\Console\Commands\RunAppHealthChecks;
@@ -66,6 +67,10 @@ $application = Application::configure(basePath: dirname(__DIR__))
             ->daily()
             ->runInBackground();
         $schedule->command(PruneWorkspaceSpfSearchRuns::class)
+            ->daily()
+            ->withoutOverlapping()
+            ->runInBackground();
+        $schedule->command(PruneReturnedServerTrackingEndpoints::class)
             ->daily()
             ->withoutOverlapping()
             ->runInBackground();

@@ -442,7 +442,21 @@ class AppSettingsConsoleController extends Controller
 
         $message = $installationOnly ? 'Installation settings saved.' : 'Settings saved.';
 
-        return redirect(route('console.app-settings.index', $workspace->getKey()).'#settings')->with('status', $message);
+        $returnTab = in_array($request->input('return_tab'), [
+            'settings',
+            'pmta_domains',
+            'telegram-connection',
+            'telegram-events',
+            'telegram-messages',
+            'settings-core',
+            'settings-firewall',
+            'settings-traffic',
+            'settings-pmta',
+            'settings-backup',
+            'settings-integrations',
+        ], true) ? $request->input('return_tab') : 'settings';
+
+        return redirect(route('console.app-settings.index', $workspace->getKey()).'#'.$returnTab)->with('status', $message);
     }
 
     /** @param  list<string>  $allowedFields

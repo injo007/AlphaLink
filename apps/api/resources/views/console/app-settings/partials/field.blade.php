@@ -53,6 +53,7 @@
             type="{{ $secret ? 'password' : ($type ?? 'text') }}"
             class="form-control command-input-with-icon"
             value="{{ $inputValue }}"
+            @if (!empty($form)) form="{{ $form }}" @endif
             @if (!empty($readonly)) readonly aria-readonly="true" @endif
             @if ($secret) autocomplete="new-password" @endif
             @if ($secret && ($secretConfigured[$field] ?? false) && ($canManageGeneralSettings ?? false)) data-secret-input="{{ $field }}" data-secret-url="{{ route('clean.console.app-settings.secret', ['field' => $field]) }}" @endif
@@ -71,7 +72,7 @@
         @endif
         @if ($secretStored[$field] ?? false)
             <div class="custom-control custom-checkbox command-secret-clear-wrap">
-                <input type="checkbox" class="custom-control-input" id="clear_{{ $field }}" name="settings_clear[{{ $field }}]" value="1">
+                <input type="checkbox" class="custom-control-input" id="clear_{{ $field }}" name="settings_clear[{{ $field }}]" value="1" @if (!empty($form)) form="{{ $form }}" @endif>
                 <label class="custom-control-label text-danger" for="clear_{{ $field }}">Clear saved value</label>
             </div>
         @endif

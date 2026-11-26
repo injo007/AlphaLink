@@ -626,7 +626,7 @@ class InfrastructureConsoleController extends Controller
                     return [
                         'id' => (string) $domain->getKey(),
                         'domain_id' => $domain->provider_domain_id,
-                        'provider' => $provider ? ['name' => $provider->name, 'type' => $provider->type] : null,
+                        'provider' => $provider ? ['id' => $provider->getKey(), 'name' => $provider->name, 'type' => $provider->type] : null,
                         'dns' => $domain->name,
                         'status' => $domain->status,
                         'is_our' => $domain->is_our,
@@ -634,7 +634,12 @@ class InfrastructureConsoleController extends Controller
                         'have_renew' => $domain->have_renew,
                         'is_active' => $domain->is_active,
                         'expire_at' => $domain->expire_at?->toDateString(),
+                        'created_at' => $domain->created_at?->toDateString(),
                         'history' => $domain->history ? [
+                            'a_record' => $domain->history->a_record,
+                            'spf' => $domain->history->spf,
+                            'dkim' => $domain->history->dkim,
+                            'dmarc' => $domain->history->dmarc,
                             'is_listed_spamhaus' => $domain->history->is_listed_spamhaus,
                             'is_listed_hostkarma' => $domain->history->is_listed_hostkarma,
                         ] : null,
@@ -1015,6 +1020,34 @@ class InfrastructureConsoleController extends Controller
         }
 
         return response()->json(['data' => $result ? 'Changed successfully' : 'Failed'], $result ? 200 : 400);
+    }
+
+    public function bulkSetDomainStatus(Request $request, string $workspaceId): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:500'],
+            'ids.*' => ['required', 'uuid', 'distinct'],
+            'status' => ['required', 'string', Rule::in(['new', 'free', 'used', 'redirect'])],
+        ]);
+        $domains = $workspace->sendingDomains()->whereKey($data['ids'])->get();
+        abort_unless($domains->count() === count($data['ids']), 404);
+
+        DB::transaction(function () use ($workspace, $domains, $data, $request): void {
+            foreach ($domains as $domain) {
+                $domain->fill(['status' => $data['status']])->save();
+                $this->auditDomainChange($workspace, $request->user(), $domain, $request, 'domain.alphalink_status_changed', [
+                    'status' => $data['status'],
+                    'bulk' => true,
+                ]);
+            }
+        });
+
+        return response()->json([
+            'data' => 'Updated '.$domains->count().' domain(s) to '.strtoupper($data['status']).'.',
+            'updated' => $domains->count(),
+            'status' => $data['status'],
+        ]);
     }
 
     public function deleteDomains(Request $request, string $workspaceId): JsonResponse

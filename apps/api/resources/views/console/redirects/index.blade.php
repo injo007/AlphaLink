@@ -15,7 +15,7 @@
         .redirects-meta { align-items: center; background: var(--co-surface-muted, #f7f8fd); border: 1px solid var(--co-border, #dfe3f1); border-radius: .7rem; color: var(--co-muted, #5f6b89); display: inline-flex; font-size: .72rem; font-weight: 750; gap: .45rem; padding: .55rem .75rem; white-space: nowrap; }
         .redirects-meta i { color: var(--co-purple, #793df6); }
         .redirects-content { display: grid; gap: 1rem; padding: clamp(.9rem, 1.8vw, 1.35rem); }
-        .redirects-metrics { display: grid; gap: .75rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .redirects-metrics { display: grid; gap: .75rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
         .redirects-metric { background: var(--co-surface, #fff); border: 1px solid var(--co-border, #dfe3f1); border-radius: .8rem; display: flex; gap: .8rem; min-width: 0; padding: .95rem; }
         .redirects-metric-icon { align-items: center; background: color-mix(in srgb, var(--co-purple, #793df6) 10%, var(--co-surface, #fff)); border-radius: .65rem; color: var(--co-purple, #793df6); display: inline-flex; flex: 0 0 2.45rem; height: 2.45rem; justify-content: center; }
         .redirects-metric small { color: var(--co-muted, #5f6b89); display: block; font-size: .68rem; font-weight: 800; letter-spacing: .055em; text-transform: uppercase; }
@@ -41,6 +41,7 @@
         .redirects-status.is-pending { background: color-mix(in srgb, #d38b22 10%, var(--co-surface, #fff)); border-color: color-mix(in srgb, #d38b22 28%, var(--co-border, #dfe3f1)); color: #8d5716; }
         .redirects-empty { color: var(--co-muted, #5f6b89); font-size: .8rem; padding: 1.5rem 1rem; text-align: center; }
         .redirects-empty i { color: color-mix(in srgb, var(--co-purple, #793df6) 65%, var(--co-muted, #5f6b89)); display: block; font-size: 1.2rem; margin-bottom: .5rem; }
+        @media (max-width: 980px) { .redirects-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 700px) { .redirects-metrics { grid-template-columns: 1fr; } .redirects-hero { align-items: flex-start; } .redirects-content { padding: .75rem; } }
         @media (prefers-reduced-motion: reduce) { .redirects-page *, .redirects-page *::before, .redirects-page *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
         html[data-command-theme='dark'] .redirects-status.is-ready { background: color-mix(in srgb, #21c58b 16%, var(--co-surface, #111d3b)); color: #8df0c5; }
@@ -67,7 +68,7 @@
                 <section class="redirects-metrics" aria-label="Redirect summary">
                     <article class="redirects-metric">
                         <span class="redirects-metric-icon" aria-hidden="true"><i class="fas fa-server"></i></span>
-                        <div><small>Tracking endpoints ready</small><strong>{{ number_format($readyEndpointCount) }}</strong><span>Installed hosts with tracking and HTTPS enabled</span></div>
+                        <div><small>Tracking endpoints ready</small><strong>{{ number_format($readyEndpointCount) }}</strong><span>Installed domain endpoints with tracking HTTPS ready</span></div>
                     </article>
                     <article class="redirects-metric">
                         <span class="redirects-metric-icon" aria-hidden="true"><i class="fas fa-mouse-pointer"></i></span>
@@ -77,32 +78,38 @@
                         <span class="redirects-metric-icon" aria-hidden="true"><i class="fas fa-lock"></i></span>
                         <div><small>Campaign fallback</small><strong>Signed</strong><span>AlphaLink handles clicks when a server tracker is unavailable</span></div>
                     </article>
+                    <article class="redirects-metric">
+                        <span class="redirects-metric-icon" aria-hidden="true"><i class="fas fa-clock"></i></span>
+                        <div><small>Removed server retention</small><strong>{{ number_format($retainedEndpointCount) }}</strong><span>Domain endpoints retained for 30 days after removal</span></div>
+                    </article>
                 </section>
 
                 <aside class="redirects-note" aria-label="Redirect behavior">
                     <i class="fas fa-info-circle" aria-hidden="true"></i>
-                    <p><strong>How campaign links work:</strong> sends use the server’s saved tracking hostname only when tracking and HTTPS are enabled. Otherwise, the signed AlphaLink click route resolves the offer saved with the recipient snapshot. Destination rotation is not configured.</p>
+                    <p><strong>How campaign links work:</strong> sends use a saved domain tracking hostname only when tracking and HTTPS are enabled. Otherwise, the signed AlphaLink click route resolves the offer saved with the recipient snapshot. Removed-server endpoints remain listed for 30 days; campaign recipient snapshots and click history are preserved. Destination rotation is not configured.</p>
                 </aside>
 
                 <section class="redirects-section" aria-labelledby="tracking-endpoints-title">
                     <header class="redirects-section-head">
-                        <div><h2 id="tracking-endpoints-title">Installed tracking endpoints</h2><p>Readiness is based on saved installation settings.</p></div>
-                        <span class="redirects-count">{{ $trackingServers->count() }} installed</span>
+                        <div><h2 id="tracking-endpoints-title">Installed tracking endpoints</h2><p>Every installed domain assignment is listed separately, including inactive domains sharing one IP.</p></div>
+                        <span class="redirects-count">{{ $trackingServers->count() }} endpoints</span>
                     </header>
                     @if ($trackingServers->isEmpty())
-                        <div class="redirects-empty"><i class="fas fa-server" aria-hidden="true"></i>No installed servers are available in this workspace yet.</div>
+                        <div class="redirects-empty"><i class="fas fa-server" aria-hidden="true"></i>No installed domain tracking endpoints are available in this workspace yet.</div>
                     @else
                         <div class="redirects-table-wrap" role="region" aria-label="Installed tracking endpoints" tabindex="0">
                             <table class="redirects-table">
-                                <thead><tr><th scope="col">Server</th><th scope="col">Tracking host</th><th scope="col">Tracking</th><th scope="col">HTTPS</th><th scope="col">Readiness</th></tr></thead>
+                                <thead><tr><th scope="col">Server / IP</th><th scope="col">Installed domain</th><th scope="col">Tracking host</th><th scope="col">Tracking</th><th scope="col">HTTPS</th><th scope="col">Readiness</th><th scope="col">Retention</th></tr></thead>
                                 <tbody>
                                     @foreach ($trackingServers as $server)
                                         <tr>
                                             <td><strong>{{ $server['name'] }}</strong><br><span class="text-muted small">{{ $server['ip_address'] }}</span></td>
+                                            <td class="redirects-host">{{ $server['domain'] ?? 'Legacy server host' }}</td>
                                             <td class="redirects-host">{{ $server['tracking_host'] ?? 'Not configured' }}</td>
                                             <td>{{ $server['tracking_enabled'] ? 'Enabled' : 'Disabled' }}</td>
                                             <td>{{ $server['https_enabled'] ? 'Enabled' : 'Disabled' }}</td>
                                             <td><span class="redirects-status {{ $server['ready'] ? 'is-ready' : 'is-pending' }}"><i class="fas {{ $server['ready'] ? 'fa-check-circle' : 'fa-exclamation-circle' }}" aria-hidden="true"></i>{{ $server['status'] }}</span></td>
+                                            <td>@if ($server['retained'])<span class="redirects-status is-pending">Until {{ $server['retained_until']->format('Y-m-d') }}</span>@else<span class="text-muted">Active</span>@endif</td>
                                         </tr>
                                     @endforeach
                                 </tbody>

@@ -122,7 +122,7 @@ The original base interface is light-only. The Dashboard and My Campaigns Comman
 
 Use the system sans stack for controls, labels, and explanatory copy; the serif stack for primary record headings and large counts; and the mono stack for IDs, fingerprints, and compact data labels. All stacks include system fallbacks and do not require a remote font download. Keep labels in sentence case, with uppercase reserved for short technical eyebrows. Use tabular numerals for counts and IDs. English is the current language; future scripts must be checked for line-height and truncation before launch.
 
-The authenticated navigation sidebar uses bundled IBM Plex Sans Condensed at weights 400–700, as explicitly requested on 2026-11-26. This font applies to the sidebar only; Command OS headings, controls, tables, and explanatory copy retain their existing typography.
+The authenticated navigation sidebar uses bundled IBM Plex Sans Condensed at 13px and regular weight 400 for navigation labels. Keep the labels normal, not bold; apply this font treatment only to sidebar navigation. Command OS headings, controls, tables, and explanatory copy retain their existing typography.
 
 ## Layout
 

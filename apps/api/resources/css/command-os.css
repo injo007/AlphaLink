@@ -87,6 +87,9 @@ body.command-os-shell #page-container.command-os-page {
 }
 
 body.command-os-shell #sidebar {
+    --co-sidebar-nav-font-family: 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif;
+    --co-sidebar-nav-font-size: 13px;
+    --co-sidebar-nav-font-weight: 400;
     grid-column: 1;
     grid-row: 1 / 4;
     position: sticky;
@@ -102,7 +105,9 @@ body.command-os-shell #sidebar {
     border-right: 1px solid var(--co-border);
     box-shadow: none;
     scrollbar-color: var(--co-border-strong) transparent;
-    font-family: 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif;
+    font-family: var(--co-sidebar-nav-font-family);
+    font-size: var(--co-sidebar-nav-font-size);
+    font-weight: var(--co-sidebar-nav-font-weight);
 }
 
 body.command-os-shell #sidebar .content-header {
@@ -221,8 +226,9 @@ body.command-os-shell #sidebar .command-os-navigation-link {
     background: transparent;
     cursor: pointer;
     font: inherit;
-    font-size: 11.5px;
-    font-weight: 640;
+    font-family: var(--co-sidebar-nav-font-family);
+    font-size: var(--co-sidebar-nav-font-size);
+    font-weight: var(--co-sidebar-nav-font-weight);
     line-height: 1.25;
     text-align: left;
     text-decoration: none;
@@ -376,8 +382,9 @@ body.command-os-shell #sidebar .command-os-navigation-submenu li > span {
     padding: 5px 8px;
     border-radius: 8px;
     color: var(--co-ink);
-    font-size: 11px;
-    font-weight: 600;
+    font-family: var(--co-sidebar-nav-font-family);
+    font-size: var(--co-sidebar-nav-font-size);
+    font-weight: var(--co-sidebar-nav-font-weight);
     line-height: 1.3;
     text-decoration: none;
     white-space: normal;
@@ -464,8 +471,9 @@ body.command-os-shell #sidebar .nav-main-link {
     padding: 5px 9px;
     border-radius: 9px;
     color: var(--co-ink);
-    font-size: 11px;
-    font-weight: 640;
+    font-family: var(--co-sidebar-nav-font-family);
+    font-size: var(--co-sidebar-nav-font-size);
+    font-weight: var(--co-sidebar-nav-font-weight);
     line-height: 1.25;
     transition: color .16s ease, background .16s ease, box-shadow .16s ease;
 }
@@ -521,12 +529,21 @@ body.command-os-shell #sidebar .nav-main-submenu .nav-main-link,
 #sidebar .nav-main-submenu .nav-main-link {
     min-height: 30px !important;
     padding: 5px 8px !important;
-    font-size: 11px !important;
+    font-family: var(--co-sidebar-nav-font-family) !important;
+    font-size: var(--co-sidebar-nav-font-size) !important;
+    font-weight: var(--co-sidebar-nav-font-weight) !important;
     white-space: normal !important;
     overflow: visible !important;
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
+}
+
+body.command-os-shell #sidebar .nav-main-link-name,
+#sidebar .nav-main-link-name {
+    font-family: var(--co-sidebar-nav-font-family) !important;
+    font-size: var(--co-sidebar-nav-font-size) !important;
+    font-weight: var(--co-sidebar-nav-font-weight) !important;
 }
 
 body.command-os-shell #sidebar .nav-main-submenu .nav-main-link-icon,

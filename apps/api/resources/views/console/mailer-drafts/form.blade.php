@@ -122,7 +122,7 @@
     </form>
 @endif
 
-<section class="block block-rounded {{ $isWarmup ? 'warmup-composer-page' : '' }}" id="mailer-composer" data-options-url="{{ $optionsUrl }}" data-kind="{{ $kind }}">
+<section class="block block-rounded {{ $isWarmup ? 'warmup-composer-page' : '' }}" id="mailer-composer" data-options-url="{{ $optionsUrl }}" data-seed-load-url="{{ $seedEmailsUrl }}" data-kind="{{ $kind }}">
     <div class="block-header {{ $isWarmup ? 'warmup-composer-header' : '' }}">
         @if ($isWarmup)
             <div class="warmup-composer-heading">
@@ -330,9 +330,14 @@
                                 </select>
                                 <small class="form-text text-muted mt-1"><a href="{{ $seedListsUrl }}" target="_blank"><i class="fas fa-external-link-alt mr-1"></i>Manage seed lists</a></small>
                             </div>
+                            <div class="form-group mb-3">
+                                <label class="command-form-label font-weight-bold" for="warmup-seed-accounts">Direct Seed Accounts from Selected Lists (one per line):</label>
+                                <textarea id="warmup-seed-accounts" rows="5" class="form-control font-monospace resize-none" placeholder="Select one or more seed lists to display their inboxes here." readonly aria-describedby="warmup-seed-inbox-status"></textarea>
+                                <small id="warmup-seed-inbox-status" class="form-text text-muted" aria-live="polite">Select seed lists to display their inbox addresses here.</small>
+                            </div>
                             <div class="form-group mb-0">
-                                <label class="command-form-label font-weight-bold" for="warmup-seed-accounts">Direct Seed Accounts (one per line):</label>
-                                <textarea id="warmup-seed-accounts" name="seed_accounts_text" rows="5" class="form-control font-monospace resize-none" placeholder="seed1@domain.com&#10;seed2@domain.com">{{ old('seed_accounts_text', $content['seed_accounts_text'] ?? '') }}</textarea>
+                                <label class="command-form-label font-weight-bold" for="warmup-additional-seed-accounts">Manual Direct Seed Accounts (one per line):</label>
+                                <textarea id="warmup-additional-seed-accounts" name="seed_accounts_text" rows="3" class="form-control font-monospace resize-none" placeholder="seed1@domain.com&#10;seed2@domain.com">{{ old('seed_accounts_text', $content['seed_accounts_text'] ?? '') }}</textarea>
                             </div>
                         </div>
                     </div>
@@ -1186,7 +1191,51 @@
     form.addEventListener('reset', () => window.setTimeout(() => {
         if (headerEditor) headerEditor.session.setValue(byId('mailer-header').value, -1);
         if (bodyEditor) bodyEditor.session.setValue(byId('mailer-body').value, -1);
+        syncSelectedSeedAccounts();
     }, 0));
+    const syncSelectedSeedAccounts = async () => {
+        const seedSelect = byId('warmup-seeds');
+        const inboxPreview = byId('warmup-seed-accounts');
+        const seedTotal = byId('warmup-seed-total');
+        const inboxStatus = byId('warmup-seed-inbox-status');
+        if (!seedSelect || !inboxPreview || !seedTotal || !inboxStatus) return;
+
+        const selectedOptions = Array.from(seedSelect.selectedOptions || []);
+        const selectedIds = selectedOptions.map(option => String(option.value)).filter(Boolean);
+        const total = selectedOptions.reduce((sum, option) => sum + Number(option.dataset.count || 0), 0);
+        seedTotal.textContent = `${total.toLocaleString()} seeds`;
+
+        const requestId = (syncSelectedSeedAccounts.requestId || 0) + 1;
+        syncSelectedSeedAccounts.requestId = requestId;
+        if (selectedIds.length === 0) {
+            inboxPreview.value = '';
+            inboxStatus.textContent = 'Select seed lists to display their inbox addresses here.';
+            return;
+        }
+
+        inboxStatus.textContent = `Loading inboxes from ${selectedIds.length.toLocaleString()} selected seed list(s)…`;
+        const params = new URLSearchParams();
+        selectedIds.forEach(id => params.append('ids[]', id));
+        try {
+            const response = await fetch(`${root.dataset.seedLoadUrl}?${params.toString()}`, {
+                headers: {'Accept': 'application/json'},
+                credentials: 'same-origin',
+            });
+            if (!response.ok) throw new Error('Seed inbox request failed.');
+            const emails = await response.json();
+            if (requestId !== syncSelectedSeedAccounts.requestId) return;
+            if (!Array.isArray(emails)) throw new Error('Seed inbox response was invalid.');
+
+            const uniqueEmails = [...new Set(emails.map(email => String(email).trim()).filter(Boolean))];
+            inboxPreview.value = uniqueEmails.join('\n');
+            inboxStatus.textContent = `${uniqueEmails.length.toLocaleString()} unique inbox address(es) loaded from the selected seed lists.`;
+        } catch (_) {
+            if (requestId !== syncSelectedSeedAccounts.requestId) return;
+            inboxPreview.value = '';
+            inboxStatus.textContent = 'Could not load inboxes for the selected seed lists. Refresh the page and try again.';
+        }
+    };
+    byId('warmup-seeds')?.addEventListener('change', syncSelectedSeedAccounts);
     const selectedSegmentValues = () => new Set(Array.from(byId('drop-segments')?.querySelectorAll('.drop-segment-option:checked') || []).map(input => String(input.value)));
     const syncSegmentCount = () => {
         const selected = Array.from(byId('drop-segments')?.querySelectorAll('.drop-segment-option:checked') || []);
@@ -1462,6 +1511,7 @@
     if (window.jQuery?.fn?.selectpicker) window.jQuery(form).find('.selectpicker').selectpicker();
     syncPmtaAdminUrl();
     syncPmtaPanelUrls();
+    syncSelectedSeedAccounts();
     refresh();
 
     byId('add-saved-email')?.addEventListener('click', () => {

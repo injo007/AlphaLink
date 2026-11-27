@@ -448,6 +448,7 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             'updateUrl' => $draft ? route($kind === 'drop' ? 'console.drops.drafts.update' : 'console.warmups.update', [$workspace->getKey(), $draft->getKey()]) : null,
             'indexUrl' => route($kind === 'drop' ? 'console.drops.drafts.index' : 'console.warmups.index', $workspace->getKey()),
             'seedListsUrl' => route('console.warmups.seeds.index', $workspace->getKey()),
+            'seedEmailsUrl' => route('console.warmups.seeds.load', $workspace->getKey()),
             'sendUrl' => $draft ? route($kind === 'drop' ? 'console.drops.send' : 'console.warmups.send', [$workspace->getKey(), $draft->getKey()]) : null,
             'optionsUrl' => route('console.campaigns.send-options', $workspace->getKey()),
         ]);

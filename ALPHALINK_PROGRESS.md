@@ -1,8 +1,12 @@
 # AlphaLink development progress
 
-**Updated:** 2026-11-26
-**Active objective:** Render navigation sidebar labels in regular 13px IBM Plex Sans Condensed and verify the deployed CSS/font asset.
-**Current implementation status:** The latest sidebar correction explicitly sets IBM Plex Sans Condensed, 13px, weight 400 for top-level and submenu labels. Release `4b13b7f9916a7f9fd7bdbd08e7891fa4aebb2f42` is active on AlphaLink; the guarded backup, required services, compiled CSS declarations, local `/up` health check, and served 400-weight font asset passed. The external browser sign-in route returned nginx 403, so browser-computed label styles remain unverified. The previous Redirects, Domains, and Settings changes remain documented below.
+**Updated:** 2026-11-27
+**Active objective:** Show selected Warmup seed-list inboxes in the composer and keep the selected seed count current.
+**Current implementation status:** Commit `cb218ccf0ddf3292a779a8d818c83c7dd28a5564` displays selected-list inboxes in a read-only preview and updates the count through the existing workspace-scoped load route. PHP 8.5 lint/Pint, Blade compilation, inline JavaScript syntax, and diff checks pass; no tests or authenticated app check were run. Release `cb218ccf0ddf3292a779a8d818c83c7dd28a5564` is active on `baseheavy.shop`; verified backup, active required services, matching source hashes, and server-local HTTPS `/up` 200 are recorded in E-CAMP-174. DMS-WARMUP-001 remains INVESTIGATING. Earlier Sidebar, Redirects, Domains, and Settings changes remain documented below.
+
+### Warmup selected seed inbox preview — E-CAMP-174 (2026-11-27)
+
+The Warmup composer now loads selected seed-list inboxes into a read-only preview within Seed Audience & Inboxes. It refreshes the total when lists change, deduplicates the displayed addresses, and gives loading/failure feedback. Manually entered `seed_accounts_text` stays separate, and the send worker continues using selected seed-list IDs. PHP 8.5 syntax/Pint, Blade compilation, inline JavaScript syntax, and `git diff --check` pass. No automated test was run or added, and no authenticated app/browser login was performed. Commit `cb218ccf0ddf3292a779a8d818c83c7dd28a5564` is pushed and active on AlphaLink; backup validation, service state, matching source hashes, and local `/up` health passed. Keep DMS-WARMUP-001 INVESTIGATING until focused UI, permission, and persistence tests are executed.
 
 ### Sidebar navigation typography correction — E-SET-02 (2026-11-26)
 

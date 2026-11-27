@@ -13,7 +13,9 @@ use App\Services\Campaigns\CampaignRedirectUrlPolicy;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class WorkspaceRedirectConsoleController extends Controller
 {
@@ -80,6 +82,79 @@ class WorkspaceRedirectConsoleController extends Controller
                 )];
             });
 
+        $filters = [
+            'search' => is_string($request->query('search')) ? trim($request->query('search')) : '',
+            'server' => is_string($request->query('server')) ? trim($request->query('server')) : '',
+            'status' => is_string($request->query('status')) && in_array($request->query('status'), [
+                'ready', 'attention', 'tracking_off', 'https_required', 'dns_required', 'active', 'inactive', 'retained',
+            ], true) ? $request->query('status') : '',
+        ];
+
+        $baseFilteredServers = $servers->filter(function (array $server) use ($filters): bool {
+            if ($filters['server'] !== '' && $server['id'] !== $filters['server']) {
+                return false;
+            }
+
+            if ($filters['search'] === '') {
+                return true;
+            }
+
+            $searchableText = implode(' ', array_filter([
+                $server['name'],
+                $server['ip_address'],
+                $server['domain'],
+                $server['tracking_host'],
+            ]));
+
+            return Str::contains(Str::lower($searchableText), Str::lower($filters['search']));
+        })->values();
+
+        $filterCounts = [
+            'all' => $baseFilteredServers->count(),
+            'ready' => $baseFilteredServers->filter(fn (array $server): bool => $server['ready'] && ! $server['retained'])->count(),
+            'attention' => $baseFilteredServers->filter(fn (array $server): bool => ! $server['ready'] && ! $server['retained'])->count(),
+            'retained' => $baseFilteredServers->where('retained', true)->count(),
+        ];
+
+        $filteredServers = $baseFilteredServers->filter(function (array $server) use ($filters): bool {
+            return match ($filters['status']) {
+                'ready' => $server['ready'] && ! $server['retained'],
+                'attention' => ! $server['ready'] && ! $server['retained'],
+                'tracking_off' => ! $server['tracking_enabled'] && ! $server['retained'],
+                'https_required' => $server['tracking_enabled'] && ! $server['https_enabled'] && ! $server['retained'],
+                'dns_required' => $server['tracking_enabled'] && $server['https_enabled'] && ! $server['ready'] && ! $server['retained'],
+                'active' => $server['is_active'] && ! $server['retained'],
+                'inactive' => ! $server['is_active'] && ! $server['retained'],
+                'retained' => $server['retained'],
+                default => true,
+            };
+        })->values();
+
+        $serverOptions = $servers->groupBy('id')->map(function ($endpoints): array {
+            $server = $endpoints->first();
+
+            return [
+                'id' => $server['id'],
+                'name' => $server['name'],
+                'ip_address' => $server['ip_address'],
+                'endpoint_count' => $endpoints->count(),
+            ];
+        })->values();
+
+        $perPage = 25;
+        $lastPage = max(1, (int) ceil($filteredServers->count() / $perPage));
+        $currentPage = min(max(1, LengthAwarePaginator::resolveCurrentPage()), $lastPage);
+        $trackingServers = new LengthAwarePaginator(
+            $filteredServers->forPage($currentPage, $perPage)->values(),
+            $filteredServers->count(),
+            $perPage,
+            $currentPage,
+            [
+                'path' => $request->url(),
+                'query' => array_filter($filters, fn (string $value): bool => $value !== ''),
+            ],
+        );
+
         $clicksLast24Hours = CampaignEngagementEvent::query()
             ->where('workspace_id', $workspace->getKey())
             ->where('action', 'click')
@@ -101,7 +176,11 @@ class WorkspaceRedirectConsoleController extends Controller
 
         return view('console.redirects.index', [
             'workspace' => $workspace,
-            'trackingServers' => $servers,
+            'trackingServers' => $trackingServers,
+            'trackingEndpointCount' => $servers->count(),
+            'serverOptions' => $serverOptions,
+            'filters' => $filters,
+            'filterCounts' => $filterCounts,
             'readyEndpointCount' => $servers->where('ready', true)->count(),
             'retainedEndpointCount' => $servers->where('retained', true)->count(),
             'clicksLast24Hours' => $clicksLast24Hours,

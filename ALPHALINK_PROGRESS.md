@@ -1,8 +1,14 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-27
-**Active objective:** Merge Workspace Members into Global User Accounts navigation.
-**Current implementation status:** E-IAM-18 leaves Global User Accounts as the only user-management sidebar destination and adds in-page navigation between global accounts and workspace access. Workspace member routes and their full-access policy remain intact. PHP syntax checks for the three changed Blade files and `git diff --check` pass. Commit `a2d1312add987f4422356d17aee37d7b5f46b932` is pushed and deployed to AlphaLink; independent checks confirmed the active/fetched release, required services, matching deployed Blade hashes, verified PostgreSQL backup `/var/backups/alphalink/deploy-a2d1312add987f4422356d17aee37d7b5f46b932-20261127T165702Z.dump`, and local HTTPS `/up` (200). No automated test or authenticated app login was run. Keep ALPHALINK-IAM-001 IMPLEMENTING.
+**Active objective:** Improve Redirects & Rotators domain discovery, filtering, and responsive presentation.
+**Current implementation status:** E-TRACK-55 adds URL-backed domain search, server and endpoint-state filters, 25-row pagination, and a phone layout that preserves every endpoint field. PHP 8.5 lint/Pint, Blade compilation, strict UI audit, and diff checks pass. No behavior tests or authenticated UI review were run; the feature remains IMPLEMENTING pending the required checks. AlphaLink deployment is pending.
+
+### Redirects & Rotators domain discovery — E-TRACK-55 (2026-11-27)
+
+The installed endpoint register now puts each assigned domain first and supports URL-backed search across domain, tracking host, server name, and IP, plus server, readiness, tracking, HTTPS, activity, and retention filters. Quick status links preserve the current search and server filters. The result count and pagination are explicit, page size is bounded at 25, and narrow screens use labeled endpoint cards containing the same fields. No campaign routing, tracking readiness, workspace authorization, retention, or click-history behavior changed. The no-match state tells users to adjust or clear filters.
+
+PHP 8.5 syntax/Pint, Laravel Blade compilation, `git diff --check`, and the strict UI audit pass. No tests were added or run and no authenticated UI check was performed. Keep the AlphaLink UI behavior IMPLEMENTING until those checks are executed; DMS parity was not assessed.
 
 ### User management navigation consolidation — E-IAM-18 (2026-11-27)
 

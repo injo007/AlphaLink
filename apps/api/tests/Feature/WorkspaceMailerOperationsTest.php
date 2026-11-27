@@ -27,12 +27,24 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\Mailer\Transport\Smtp\SmtpTransport;
 use Tests\TestCase;
 
 class WorkspaceMailerOperationsTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_warmup_composer_offers_sending_domain_delivery(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+
+        $response = $this->actingAs($owner)->get(route('console.warmups.create', $workspace->getKey()));
+
+        $response->assertOk()->assertSee('name="route_option"', false)
+            ->assertSee('<option value="domain"', false)->assertSee('DOMAIN');
+    }
 
     public function test_drop_and_warmup_sidebar_items_open_workspace_pages(): void
     {
@@ -93,6 +105,7 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertStringContainsString('id="send-ips" name="ip_ids[]"', $warmupComposerHtml);
         $this->assertStringContainsString('id="available-send-ips"', $warmupComposerHtml);
         $this->assertStringContainsString('id="selected-send-ips"', $warmupComposerHtml);
+        $this->assertStringContainsString('<option value="domain">DOMAIN</option>', $warmupComposerHtml);
         $this->assertStringContainsString('createMailerEditor(\'mailer-header-editor\', \'mailer-header\', \'text\', 30)', $warmupComposerHtml);
         $this->assertStringNotContainsString('for="mailer-draft-name"', $warmupComposerHtml);
         $this->assertStringContainsString('id="mailer-draft-name" name="name" value="New Warmup"', $warmupComposerHtml);
@@ -357,8 +370,10 @@ class WorkspaceMailerOperationsTest extends TestCase
             'campaign_id' => $campaign->getKey(), 'revision_number' => 1,
             'payload' => [
                 'send_type' => 'delayp', 'seed_list_ids' => [(int) $selectedList->getKey()], 'start_from' => 1, 'total_send' => 1,
-                'header' => 'Content-Type: text/html', 'html_body' => '<p>Warmup fixture</p>',
-                'send_setup' => ['route_option' => 'ip', 'ip_type' => 'ipv4', 'server_ids' => [$serverId], 'ip_ids' => [$ipId]],
+                'header' => "Content-Type: text/html\nFrom: sender@[domain]\nSubject: Warmup fixture",
+                'html_body' => '<p>Warmup fixture at https://[domain]/offer</p>',
+                'return_path' => 'bounce@[domain]',
+                'send_setup' => ['route_option' => 'domain', 'ip_type' => 'ipv4', 'server_ids' => [$serverId], 'ip_ids' => [$ipId]],
             ],
             'content_sha256' => hash('sha256', 'queued warmup content'),
             'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'queued warmup request'),
@@ -374,6 +389,7 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertSame('planned', $run->state);
         $this->assertSame('delayp', $run->send_type);
         $this->assertSame(1, $run->recipient_count);
+        $this->assertSame('domain', $campaign->latestRevision->payload['send_setup']['route_option']);
         $this->assertNotSame('second@example.test', $recipient->recipient_ciphertext);
         $this->assertSame('second@example.test', Crypt::decryptString($recipient->recipient_ciphertext));
         Queue::assertPushedOn('campaign-sends', ProcessWarmupSendRun::class, fn (ProcessWarmupSendRun $job): bool => $job->sendRunId === (string) $run->getKey());
@@ -384,25 +400,60 @@ class WorkspaceMailerOperationsTest extends TestCase
             'is_installed' => true, 'idempotency_key' => (string) Str::uuid(),
             'request_fingerprint' => hash('sha256', 'warmup worker server'), 'created_by' => $owner->getKey(),
         ]);
-        $messageBuilder = \Mockery::mock(WarmupSendMessageBuilder::class);
-        $messageBuilder->shouldReceive('context')->once()->andReturn(['port' => 2525]);
-        $messageBuilder->shouldReceive('build')->once()->withArgs(fn (array $context, int $position, string $email, WarmupSendRun $activeRun): bool => $context['port'] === 2525
+        $domainChoice = [
+            'id' => $ipId,
+            'server_id' => (string) $server->getKey(),
+            'managed_server_ip_id' => $ipId,
+            'sending_domain_id' => (string) Str::uuid(),
+            'ip' => '203.0.113.180',
+            'type' => 'ipv4',
+            'domain' => 'warmup-route.example.test',
+            'dns' => 'warmup-route.example.test',
+            'is_ready' => true,
+        ];
+        $messageBuilder = app(WarmupSendMessageBuilder::class);
+        $messageContext = [
+            'campaign' => $campaign,
+            'setup' => ['route_option' => 'domain'],
+            'route' => 'domain',
+            'port' => 2525,
+            'servers' => collect([$server]),
+            'choices_by_server' => collect([(string) $server->getKey() => collect([$domainChoice])]),
+            'header_template' => "Content-Type: text/html\nFrom: sender@[domain]\nSubject: Warmup fixture",
+            'body_template' => '<p>Warmup fixture at https://[domain]/offer</p>',
+            'return_path' => 'bounce@[domain]',
+            'negative_path' => '',
+            'placeholder_rows' => [],
+        ];
+        $builtMessage = $messageBuilder->build($messageContext, 1, 'second@example.test', $run);
+        $this->assertSame('sender@warmup-route.example.test', $this->headerAddress($builtMessage['header'], 'From'));
+        $this->assertSame('bounce@warmup-route.example.test', $builtMessage['envelope_from']);
+        $this->assertStringContainsString('https://warmup-route.example.test/offer', $builtMessage['body']);
+        $messageContext['header_template'] = "From: sender@wrong.example.test\nSubject: Warmup fixture";
+        try {
+            $messageBuilder->build($messageContext, 1, 'second@example.test', $run);
+            $this->fail('A domain-routed Warmup must reject a From address outside the selected domain.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('header', $exception->errors());
+        }
+
+        $workerMessageBuilder = \Mockery::mock(WarmupSendMessageBuilder::class);
+        $workerMessageBuilder->shouldReceive('context')->once()->andReturn(['port' => 2525]);
+        $workerMessageBuilder->shouldReceive('build')->once()->withArgs(fn (array $context, int $position, string $email, WarmupSendRun $activeRun): bool => $context['port'] === 2525
             && $position === 1 && $email === 'second@example.test' && $activeRun->is($run))
-            ->andReturn([
-                'server' => $server, 'header' => "To: second@example.test\nSubject: Warmup test",
-                'body' => '<p>Warmup test body</p>', 'envelope_from' => 'warmup@example.test',
-                'recipient' => 'second@example.test',
-            ]);
+            ->andReturn($builtMessage);
         $transport = \Mockery::mock(SmtpTransport::class);
         $transport->shouldReceive('start')->once();
-        $transport->shouldReceive('send')->once()->withArgs(fn ($message, $envelope): bool => str_contains($message->toString(), '<p>Warmup test body</p>')
+        $transport->shouldReceive('send')->once()->withArgs(fn ($message, $envelope): bool => str_contains($message->toString(), 'From: sender@warmup-route.example.test')
+            && str_contains($message->toString(), 'https://warmup-route.example.test/offer')
+            && $envelope->getSender()->getAddress() === 'bounce@warmup-route.example.test'
             && $envelope->getRecipients()[0]->getAddress() === 'second@example.test');
         $transport->shouldReceive('stop')->once();
         $transportFactory = \Mockery::mock(PmtaCampaignTestTransport::class);
         $transportFactory->shouldReceive('forServer')->once()
             ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
             ->andReturn($transport);
-        (new ProcessWarmupSendRun((string) $run->getKey()))->handle($messageBuilder, $transportFactory);
+        (new ProcessWarmupSendRun((string) $run->getKey()))->handle($workerMessageBuilder, $transportFactory);
 
         $run->refresh();
         $recipient->refresh();
@@ -495,6 +546,13 @@ class WorkspaceMailerOperationsTest extends TestCase
         $workspace->users()->attach($owner->getKey(), ['role' => $role]);
 
         return $workspace;
+    }
+
+    private function headerAddress(string $header, string $name): string
+    {
+        preg_match('/^'.preg_quote($name, '/').':\s*(.+)$/im', $header, $matches);
+
+        return trim((string) ($matches[1] ?? ''));
     }
 
     private function audienceList(Workspace $workspace, User $creator, string $name, ?int $ispId = null, ?string $country = null): AudienceList

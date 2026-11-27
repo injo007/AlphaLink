@@ -2,13 +2,13 @@
 
 **Updated:** 2026-11-27
 **Active objective:** Improve Redirects & Rotators domain discovery, filtering, and responsive presentation.
-**Current implementation status:** E-TRACK-55 adds URL-backed domain search, server and endpoint-state filters, 25-row pagination, and a phone layout that preserves every endpoint field. PHP 8.5 lint/Pint, Blade compilation, strict UI audit, and diff checks pass. No behavior tests or authenticated UI review were run; the feature remains IMPLEMENTING pending the required checks. AlphaLink deployment is pending.
+**Current implementation status:** E-TRACK-55 adds URL-backed domain search, server and endpoint-state filters, 25-row pagination, and a phone layout that preserves every endpoint field. PHP 8.5 lint/Pint, Blade compilation, CSS parsing, strict UI audit, and diff checks pass. The pushed code release is active on AlphaLink; its active/fetched revision matches, backup restore listing and required services pass, `/up` returns 200, and deployed controller/view hashes match. No behavior tests or authenticated UI review were run; keep the feature IMPLEMENTING.
 
 ### Redirects & Rotators domain discovery — E-TRACK-55 (2026-11-27)
 
 The installed endpoint register now puts each assigned domain first and supports URL-backed search across domain, tracking host, server name, and IP, plus server, readiness, tracking, HTTPS, activity, and retention filters. Quick status links preserve the current search and server filters. The result count and pagination are explicit, page size is bounded at 25, and narrow screens use labeled endpoint cards containing the same fields. No campaign routing, tracking readiness, workspace authorization, retention, or click-history behavior changed. The no-match state tells users to adjust or clear filters.
 
-PHP 8.5 syntax/Pint, Laravel Blade compilation, `git diff --check`, and the strict UI audit pass. No tests were added or run and no authenticated UI check was performed. Keep the AlphaLink UI behavior IMPLEMENTING until those checks are executed; DMS parity was not assessed.
+PHP 8.5 syntax/Pint, Laravel Blade compilation, CSS parsing, `git diff --check`, and the strict UI audit pass. The guarded deployment is active on `baseheavy.shop`; active/fetched release revisions match, the release backup passes `pg_restore --list`, PHP-FPM/Horizon/suppression/scheduler services are active, server-local HTTPS `/up` returns 200, and deployed controller/view hashes match this source. No tests were added or run and no authenticated UI check or app login was performed. Keep the AlphaLink UI behavior IMPLEMENTING until behavioral checks are executed; DMS parity was not assessed.
 
 ### User management navigation consolidation — E-IAM-18 (2026-11-27)
 

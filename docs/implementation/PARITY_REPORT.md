@@ -24,7 +24,7 @@ The captured historical catalog does not establish these tag names or semantics.
 
 AlphaLink's existing workspace-scoped read-only endpoint register now makes domains the leading identifier and adds URL-backed search for the installed domain, tracking host, server name, and IP. Server and endpoint-state filters, quick links for all/ready/attention/retained, explicit no-match guidance, and 25-row pagination make the list navigable. Phone cards repeat labels and preserve the same endpoint fields. Filtering applies only to the already workspace-scoped endpoint collection; routing, readiness, retention, and campaign snapshots are unchanged.
 
-PHP 8.5 lint/Pint, Blade compilation, `git diff --check`, and the strict UI audit pass. No automated behavior test or authenticated UI review was run, so this feature remains IMPLEMENTING and is not a parity finding. No DMS access occurred.
+PHP 8.5 lint/Pint, Blade compilation, CSS parsing, `git diff --check`, and the strict UI audit pass. The pushed release is active on AlphaLink with matching active/fetched revisions, readable PostgreSQL backup, active required services, local HTTPS `/up` 200, and matching deployed controller/view hashes. No automated behavior test or authenticated UI review was run, so this feature remains IMPLEMENTING and is not a parity finding. No app login or DMS access occurred.
 
 ## AlphaLink signed campaign redirect fallback — E-TRACK-52 (2026-11-26)
 

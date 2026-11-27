@@ -2,13 +2,13 @@
 
 **Updated:** 2026-11-27
 **Active objective:** Merge Workspace Members into Global User Accounts navigation.
-**Current implementation status:** E-IAM-18 leaves Global User Accounts as the only user-management sidebar destination and adds in-page navigation between global accounts and workspace access. Workspace member routes and their full-access policy remain intact. PHP syntax checks for the three changed Blade files and `git diff --check` pass; no automated test or authenticated app login was run. Keep ALPHALINK-IAM-001 IMPLEMENTING.
+**Current implementation status:** E-IAM-18 leaves Global User Accounts as the only user-management sidebar destination and adds in-page navigation between global accounts and workspace access. Workspace member routes and their full-access policy remain intact. PHP syntax checks for the three changed Blade files and `git diff --check` pass. Commit `a2d1312add987f4422356d17aee37d7b5f46b932` is pushed and deployed to AlphaLink; independent checks confirmed the active/fetched release, required services, matching deployed Blade hashes, verified PostgreSQL backup `/var/backups/alphalink/deploy-a2d1312add987f4422356d17aee37d7b5f46b932-20261127T165702Z.dump`, and local HTTPS `/up` (200). No automated test or authenticated app login was run. Keep ALPHALINK-IAM-001 IMPLEMENTING.
 
 ### User management navigation consolidation — E-IAM-18 (2026-11-27)
 
 Workspace Settings now shows only Global User Accounts for user management. The global account page links to Workspace Access, and the workspace membership page links back to Global User Accounts, keeping the existing attach/manage workflow reachable. No route, membership, or authorization behavior changed. This is an explicit AlphaLink `APPROVED_DEVIATION`; historical DMS navigation behavior is UNKNOWN.
 
-PHP syntax checks for the three changed Blade files and `git diff --check` pass. Pint was not run because no PHP source files changed. No automated sidebar/navigation test or authenticated app check was run; the app was not opened or logged into. Keep ALPHALINK-IAM-001 IMPLEMENTING pending required permission, persistence, and UI tests.
+PHP syntax checks for the three changed Blade files and `git diff --check` pass; Pint was not run because no PHP source files changed. Commit `a2d1312add987f4422356d17aee37d7b5f46b932` is pushed to GitHub `master` and deployed on `baseheavy.shop`. The active release and fetched SHA match; PHP-FPM, Horizon, the suppression worker, and scheduler are active; all three deployed Blade hashes match; backup `/var/backups/alphalink/deploy-a2d1312add987f4422356d17aee37d7b5f46b932-20261127T165702Z.dump` passes `pg_restore --list`; and server-local HTTPS `/up` returns 200. No automated sidebar/navigation test or authenticated app check was run; the app was not opened or logged into. Keep ALPHALINK-IAM-001 IMPLEMENTING pending required permission, persistence, and UI tests.
 
 ### Mailer sidebar visibility — E-IAM-17 (2026-11-27)
 

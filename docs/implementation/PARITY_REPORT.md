@@ -6,7 +6,7 @@
 
 The user requested one user-management destination. The sidebar now exposes Global User Accounts without a separate Workspace Members link. In the workspace context, Global User Accounts provides a Workspace Access action to the existing membership page, which links back to Global User Accounts. The `GET /app/users` and `GET /app/workspaces/{workspace}/users` workflows and existing full-access route checks remain unchanged. `GlobalNavigationOrder::apply` only places current destinations, so old saved Workspace Members keys cannot recreate the removed sidebar item. This explicit AlphaLink UI rule is an `APPROVED_DEVIATION`; historical DMS navigation is UNKNOWN.
 
-PHP lint and `git diff --check` pass. Pint was not run because no PHP source files changed. No automated sidebar/route regression or authenticated UI check was run, and no app login was attempted. Keep `ALPHALINK-IAM-001` IMPLEMENTING until permission, persistence, and UI behavior have required verification.
+PHP lint and `git diff --check` pass; Pint was not run because no PHP source files changed. Code commit `a2d1312add987f4422356d17aee37d7b5f46b932` is pushed and deployed on AlphaLink. Active/fetched release, required services, deployed Blade hashes, backup `/var/backups/alphalink/deploy-a2d1312add987f4422356d17aee37d7b5f46b932-20261127T165702Z.dump` (`pg_restore --list`), and server-local HTTPS `/up` (200) are verified. No automated sidebar/route regression or authenticated UI check was run, and no app login was attempted. Keep `ALPHALINK-IAM-001` IMPLEMENTING until permission, persistence, and UI behavior have required verification.
 
 ## Mailer sidebar visibility — E-IAM-17 (2026-11-27)
 

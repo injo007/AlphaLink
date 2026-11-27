@@ -4,7 +4,7 @@
 
 ## 2026-11-27 User management navigation consolidation — E-IAM-18
 
-Global User Accounts is now the only user-management sidebar destination. In-page Workspace Access navigation preserves the existing workspace membership page and its route checks. PHP syntax checks for the three changed Blade files and `git diff --check` pass; no automated test or authenticated UI check ran. Keep ALPHALINK-IAM-001 IMPLEMENTING. Historical DMS behavior is UNKNOWN.
+Global User Accounts is now the only user-management sidebar destination. In-page Workspace Access navigation preserves the existing workspace membership page and its route checks. PHP syntax checks for the three changed Blade files and `git diff --check` pass. Commit `a2d1312add987f4422356d17aee37d7b5f46b932` is pushed and deployed on AlphaLink; active/fetched release, required services, deployed Blade hashes, backup `/var/backups/alphalink/deploy-a2d1312add987f4422356d17aee37d7b5f46b932-20261127T165702Z.dump` (`pg_restore --list`), and server-local HTTPS `/up` (200) are verified. No automated test or authenticated UI check ran. Keep ALPHALINK-IAM-001 IMPLEMENTING. Historical DMS behavior is UNKNOWN.
 
 ## 2026-11-27 Mailer sidebar visibility — E-IAM-17
 

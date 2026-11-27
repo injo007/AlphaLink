@@ -2,13 +2,13 @@
 
 **Updated:** 2026-11-27
 **Active objective:** Fix Mailer PMTA authorization and restore the PMTA support pages shown in the user screenshots.
-**Current implementation status:** E-IAM-19 updates Mailer effective permissions so the PMTA management routes and the reported ISP, Lists, Contacts, Subscribers, and Domain Provider pages are available even with custom or legacy-null permission records. PHP 8.5 syntax/Pint, Blade compilation, and `git diff --check` pass. Focused role tests were not run and no authenticated app review/login occurred. GitHub push and AlphaLink deployment are pending. No app login or authenticated UI review will be performed; keep ALPHALINK-IAM-001 IMPLEMENTING until permission tests and UI behavior are verified.
+**Current implementation status:** E-IAM-19 updates Mailer effective permissions so the PMTA management routes and the reported ISP, Lists, Contacts, Subscribers, and Domain Provider pages are available even with custom or legacy-null permission records. Commit `821f65bf98d7ebb26e15046815369e819d8e18df` is pushed and active on AlphaLink; active/fetched revisions match, backup `/var/backups/alphalink/deploy-821f65bf98d7ebb26e15046815369e819d8e18df-20261127T180121Z.dump` passes `pg_restore --list`, required services are active, server-local HTTPS `/up` returns 200, and all six changed source hashes match. PHP 8.5 syntax/Pint, Blade compilation, route registration, and `git diff --check` pass. No role tests or authenticated UI review/login occurred; keep ALPHALINK-IAM-001 IMPLEMENTING until permission tests and UI behavior are verified.
 
 ### Mailer PMTA access — E-IAM-19 (2026-11-27)
 
 Mailer accounts now get PMTA view/manage permissions plus read access to the ISP, Lists/Audiences, Contacts/Subscribers, and Domain Provider pages shown as 403 in the user's screenshots. The baseline is part of effective permissions, so it also applies to previously saved custom or legacy-null permission records. PMTA My Servers/My IPs links are mapped to the PMTA permission group. The ISP and Domain Provider list pages now use workspace membership for scoping, while per-route permissions gate them; list and contact/subscriber reads enforce their view permissions, and list mutations still require manage permission. Existing hidden Mailer sidebar groups remain hidden.
 
-Validation and deployment are pending. No automated tests or authenticated UI review have been run, and the app was not opened or logged into. Keep ALPHALINK-IAM-001 IMPLEMENTING.
+PHP 8.5 syntax/Pint, Blade compilation, route registration, and `git diff --check` pass. Commit `821f65bf98d7ebb26e15046815369e819d8e18df` is pushed and active on AlphaLink; active/fetched revisions match, backup `/var/backups/alphalink/deploy-821f65bf98d7ebb26e15046815369e819d8e18df-20261127T180121Z.dump` passes `pg_restore --list`, required services are active, server-local HTTPS `/up` returns 200, and six changed source hashes match. No role tests or authenticated UI review/login were performed. Keep ALPHALINK-IAM-001 IMPLEMENTING.
 
 ### Redirects & Rotators domain discovery — E-TRACK-55 (2026-11-27)
 

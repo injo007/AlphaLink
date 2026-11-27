@@ -157,7 +157,6 @@
         $canManageInfrastructure = $hasFullWorkspaceAccess;
         $canManagePmta = $hasFullWorkspaceAccess;
         $canManageSponsors = $hasFullWorkspaceAccess;
-        $canManageUsers = $hasFullWorkspaceAccess;
         $canManageGlobalUsers = auth()->user()->hasRole('manage_users');
         $sponsorsUrl = route('clean.console.sponsors.index');
         $networkSponsorsUrl = route('clean.console.networks.sponsors.index');
@@ -280,7 +279,6 @@
             ]],
             ['label' => 'USERS MANAGEMENT', 'icon' => 'fas fa-users-cog', 'items' => array_values(array_filter([
                 $canManageGlobalUsers ? ['label' => 'GLOBAL USER ACCOUNTS', 'icon' => 'fas fa-user-friends', 'href' => route('console.global-users.index'), 'active' => $isGlobalUsersPage] : null,
-                $canManageUsers ? ['label' => 'WORKSPACE MEMBERS', 'icon' => 'fas fa-users', 'href' => route('clean.console.users.index'), 'active' => $isUsersPage] : null,
             ]))],
             ['label' => 'ISPS MANAGEMENT', 'icon' => 'far fa-envelope', 'open' => $isIspManagementPage, 'items' => [
                 ['label' => 'ISPS', 'icon' => 'fas fa-envelope-open', 'href' => $ispsUrl, 'active' => $routeIs('console.infrastructure.isps.*')],

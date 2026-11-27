@@ -2,6 +2,10 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-27 User management navigation consolidation — E-IAM-18
+
+Global User Accounts is now the only user-management sidebar destination. In-page Workspace Access navigation preserves the existing workspace membership page and its route checks. PHP syntax checks for the three changed Blade files and `git diff --check` pass; no automated test or authenticated UI check ran. Keep ALPHALINK-IAM-001 IMPLEMENTING. Historical DMS behavior is UNKNOWN.
+
 ## 2026-11-27 Mailer sidebar visibility — E-IAM-17
 
 The explicit Mailer request is implemented in `AccessRolePolicy`: non-full-access Mailer accounts do not see Domain Management, Operations Overview, or Analytics & Insights, while remaining destinations retain saved-permission filtering. This is navigation-only; direct route/API policy is unchanged. PHP lint, PHP 8.5 Pint, and diff checks pass. Automated role/sidebar and authenticated UI checks were not run, and the app was not opened or logged into. Commit `58aa92e8333233b7d89efa4100c9e656ae49f356` is active; the guarded installer backup passed `pg_restore --list`, all four required services are active, active/fetched revision match, and server-local HTTPS `/up` returned 200. Keep ALPHALINK-IAM-001 IMPLEMENTING pending executed permission and UI checks; historical DMS behavior is UNKNOWN.

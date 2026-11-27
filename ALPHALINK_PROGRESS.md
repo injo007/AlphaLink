@@ -1,8 +1,14 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-27
-**Active objective:** Hide restricted sidebar sections for Mailer accounts.
-**Current implementation status:** E-IAM-17 makes Domain Management, Operations Overview, and Analytics & Insights invisible in the sidebar for non-full-access Mailer accounts. Saved per-page filtering and direct-route/API permissions remain unchanged. PHP lint, Pint, and diff checks pass; automated role/sidebar and authenticated UI checks were not run, and the app was not opened or logged into. Production release, backup, service, and local HTTPS verification are recorded below. Keep ALPHALINK-IAM-001 IMPLEMENTING.
+**Active objective:** Merge Workspace Members into Global User Accounts navigation.
+**Current implementation status:** E-IAM-18 leaves Global User Accounts as the only user-management sidebar destination and adds in-page navigation between global accounts and workspace access. Workspace member routes and their full-access policy remain intact. PHP syntax checks for the three changed Blade files and `git diff --check` pass; no automated test or authenticated app login was run. Keep ALPHALINK-IAM-001 IMPLEMENTING.
+
+### User management navigation consolidation — E-IAM-18 (2026-11-27)
+
+Workspace Settings now shows only Global User Accounts for user management. The global account page links to Workspace Access, and the workspace membership page links back to Global User Accounts, keeping the existing attach/manage workflow reachable. No route, membership, or authorization behavior changed. This is an explicit AlphaLink `APPROVED_DEVIATION`; historical DMS navigation behavior is UNKNOWN.
+
+PHP syntax checks for the three changed Blade files and `git diff --check` pass. Pint was not run because no PHP source files changed. No automated sidebar/navigation test or authenticated app check was run; the app was not opened or logged into. Keep ALPHALINK-IAM-001 IMPLEMENTING pending required permission, persistence, and UI tests.
 
 ### Mailer sidebar visibility — E-IAM-17 (2026-11-27)
 

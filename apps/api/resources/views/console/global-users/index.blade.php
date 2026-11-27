@@ -15,6 +15,9 @@
                 </div>
             </div>
             <div class="command-os-hero-card-right">
+                @if ($workspace && auth()->user()->hasFullAccess())
+                    <a class="btn btn-light text-decoration-none px-3" href="{{ route('clean.console.users.index') }}" style="height: 38px; display: inline-flex; align-items: center; border-radius: 10px; font-weight: 650; font-size: 11.5px; letter-spacing: .04em;"><i class="fas fa-user-shield mr-2" aria-hidden="true"></i> WORKSPACE ACCESS</a>
+                @endif
                 <a class="btn-command-primary text-decoration-none px-3" href="{{ route('console.global-users.create') }}" style="height: 38px; display: inline-flex; align-items: center; border-radius: 10px; font-weight: 750; font-size: 11.5px; letter-spacing: .06em;"><i class="fas fa-plus mr-2" aria-hidden="true"></i> ADD USER</a>
                 <a class="command-os-btn-option" href="{{ route('console.global-users.index') }}" title="REFRESH" aria-label="Refresh users"><i class="fas fa-sync" aria-hidden="true"></i></a>
                 <button class="command-os-btn-option" type="button" data-toggle="block-option" data-action="fullscreen_toggle" title="FULLSCREEN" aria-label="Toggle fullscreen"><i class="si si-size-fullscreen"></i></button>

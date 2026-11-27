@@ -2,6 +2,12 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## User management navigation consolidation — E-IAM-18 (2026-11-27)
+
+The user requested one user-management destination. The sidebar now exposes Global User Accounts without a separate Workspace Members link. In the workspace context, Global User Accounts provides a Workspace Access action to the existing membership page, which links back to Global User Accounts. The `GET /app/users` and `GET /app/workspaces/{workspace}/users` workflows and existing full-access route checks remain unchanged. `GlobalNavigationOrder::apply` only places current destinations, so old saved Workspace Members keys cannot recreate the removed sidebar item. This explicit AlphaLink UI rule is an `APPROVED_DEVIATION`; historical DMS navigation is UNKNOWN.
+
+PHP lint and `git diff --check` pass. Pint was not run because no PHP source files changed. No automated sidebar/route regression or authenticated UI check was run, and no app login was attempted. Keep `ALPHALINK-IAM-001` IMPLEMENTING until permission, persistence, and UI behavior have required verification.
+
 ## Mailer sidebar visibility — E-IAM-17 (2026-11-27)
 
 The user requested that Mailer accounts not see pages they cannot use and specifically named Domain Management, Operations Overview, and Analytics & Insights. `AccessRolePolicy::filterNavigation` now omits those three stable Command OS groups for accounts whose type is Mailer and whose access role is not Owner/Admin. Existing per-destination permission filtering continues for other groups. No named-route or API authorization changed, and the rule does not hide the groups from full-access users.

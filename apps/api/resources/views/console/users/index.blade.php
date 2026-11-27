@@ -19,7 +19,7 @@
                 <p>Manage accounts and access for <strong>{{ $workspace->name }}</strong>.</p>
             </div>
             <div class="command-os-users-heading-actions">
-                <span class="command-os-users-scope"><i class="fas fa-shield-alt" aria-hidden="true"></i> Workspace access</span>
+                <a class="command-os-users-primary" href="{{ route('console.global-users.index') }}"><i class="fas fa-users-cog" aria-hidden="true"></i><span>Global User Accounts</span></a>
                 <a class="command-os-users-primary" href="{{ route('console.users.create', $workspace->id) }}"><i class="fas fa-user-plus" aria-hidden="true"></i><span>Add User</span></a>
             </div>
         </header>

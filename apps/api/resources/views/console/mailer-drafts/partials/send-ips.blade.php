@@ -1,3 +1,18 @@
+@php
+    $selectedRoute = $selectedRoute ?? 'ip';
+    $routeLabel = match ($selectedRoute) {
+        'smtp' => 'SMTP routes',
+        'vmta' => 'VMTAs',
+        'domain' => 'Sending domains',
+        default => 'IPs',
+    };
+    $formatRoute = fn (array $route): string => $selectedRoute === 'domain'
+        ? ($route['domain'] ?? $route['dns'] ?? 'Unknown domain').' | '.$route['ip'].' | '.($route['server_name'] ?? 'server '.$route['server_id'])
+        : $route['ip'].' | '.strtoupper($route['type']).' | '.($route['dns'] ?: 'no DNS').' — server '.$route['server_id'];
+    $emptyRoutesMessage = $selectedRoute === 'domain'
+        ? 'No ready sending-domain assignments are available for the selected servers.'
+        : 'No IPs or MTAs are available for the selected servers and route.';
+@endphp
 <div class="form-group campaign-route-container mb-3">
     <div class="campaign-route-pools-heading">
         <div>
@@ -5,7 +20,7 @@
             <span>Delivery routes</span>
             <small>Choose the outbound route or accounts for this draft.</small>
         </div>
-        <span class="campaign-route-kind" id="send-route-choice-heading">{{ match ($selectedRoute ?? 'ip') { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span>
+        <span class="campaign-route-kind" id="send-route-choice-heading">{{ $routeLabel }}</span>
     </div>
 
     <select id="send-ips" name="{{ $inputName }}" class="sr-only" aria-hidden="true" tabindex="-1" multiple>
@@ -18,18 +33,18 @@
         <div class="campaign-route-selector">
             <div class="campaign-route-pane-heading">
                 <label for="available-send-ips">
-                    <span id="available-send-ips-label">Available {{ match ($selectedRoute ?? 'ip') { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span>
+                    <span id="available-send-ips-label">Available {{ $routeLabel }}</span>
                     <span class="campaign-route-count" id="available-send-ips-count">{{ count($sendOptions['ips']) - count($selectedIps) }}</span>
                 </label>
                 <button type="button" class="campaign-editor-icon-button" id="copy-available-ips" data-copy-ip-list="available" title="Copy available routes" aria-label="Copy available routes">
                     <i class="fas fa-copy" aria-hidden="true"></i>
                 </button>
             </div>
-            <input class="form-control form-control-sm campaign-route-filter" id="available-send-ips-filter" type="search" placeholder="Filter available IPs" aria-label="Filter available IPs">
-            <select id="available-send-ips" class="form-control" multiple size="10" aria-label="Available IPs" aria-describedby="send-ips-help">
+            <input class="form-control form-control-sm campaign-route-filter" id="available-send-ips-filter" type="search" placeholder="Filter available {{ strtolower($routeLabel) }}" aria-label="Filter available {{ strtolower($routeLabel) }}">
+            <select id="available-send-ips" class="form-control" multiple size="10" aria-label="Available {{ $routeLabel }}" aria-describedby="send-ips-help">
                 @foreach ($sendOptions['ips'] as $ip)
                     @if (! in_array((string) $ip['id'], $selectedIps, true))
-                        <option value="{{ $ip['id'] }}" data-server-id="{{ $ip['server_id'] }}">{{ $ip['ip'] }} | {{ strtoupper($ip['type']) }} | {{ $ip['dns'] ?: 'no DNS' }} — server {{ $ip['server_id'] }}</option>
+                        <option value="{{ $ip['id'] }}" data-server-id="{{ $ip['server_id'] }}">{{ $formatRoute($ip) }}</option>
                     @endif
                 @endforeach
             </select>
@@ -53,18 +68,18 @@
         <div class="campaign-route-selector">
             <div class="campaign-route-pane-heading">
                 <label for="selected-send-ips">
-                    <span id="selected-send-ips-label">Selected {{ match ($selectedRoute ?? 'ip') { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span>
+                    <span id="selected-send-ips-label">Selected {{ $routeLabel }}</span>
                     <span class="campaign-route-count" id="selected-send-ips-count">{{ count($selectedIps) }}</span>
                 </label>
                 <button type="button" class="campaign-editor-icon-button" id="copy-selected-ips" data-copy-ip-list="selected" title="Copy selected routes" aria-label="Copy selected routes">
                     <i class="fas fa-copy" aria-hidden="true"></i>
                 </button>
             </div>
-            <input class="form-control form-control-sm campaign-route-filter" id="selected-send-ips-filter" type="search" placeholder="Filter selected IPs" aria-label="Filter selected IPs">
-            <select id="selected-send-ips" class="form-control" multiple size="10" aria-label="Selected IPs" aria-describedby="send-ips-help">
+            <input class="form-control form-control-sm campaign-route-filter" id="selected-send-ips-filter" type="search" placeholder="Filter selected {{ strtolower($routeLabel) }}" aria-label="Filter selected {{ strtolower($routeLabel) }}">
+            <select id="selected-send-ips" class="form-control" multiple size="10" aria-label="Selected {{ $routeLabel }}" aria-describedby="send-ips-help">
                 @foreach ($sendOptions['ips'] as $ip)
                     @if (in_array((string) $ip['id'], $selectedIps, true))
-                        <option value="{{ $ip['id'] }}" data-server-id="{{ $ip['server_id'] }}">{{ $ip['ip'] }} | {{ strtoupper($ip['type']) }} | {{ $ip['dns'] ?: 'no DNS' }} — server {{ $ip['server_id'] }}</option>
+                        <option value="{{ $ip['id'] }}" data-server-id="{{ $ip['server_id'] }}">{{ $formatRoute($ip) }}</option>
                     @endif
                 @endforeach
             </select>
@@ -72,7 +87,7 @@
     </div>
 
     <div class="d-flex align-items-center justify-content-between mt-2">
-        <small id="send-ips-help" class="form-text text-muted mb-0">Double-click an entry to transfer between lists. You can also filter or use the transfer buttons.</small>
-        <small id="send-ips-empty" class="form-text text-danger mb-0" @if ($sendOptions['ips'] !== []) hidden @endif><i class="fas fa-exclamation-triangle mr-1"></i>No IPs or MTAs are available for the selected servers and route.</small>
+        <small id="send-ips-help" class="form-text text-muted mb-0">Double-click an entry to transfer routes between lists. You can also filter or use the transfer buttons.</small>
+        <small id="send-ips-empty" class="form-text text-danger mb-0" @if ($sendOptions['ips'] !== []) hidden @endif><i class="fas fa-exclamation-triangle mr-1"></i>{{ $emptyRoutesMessage }}</small>
     </div>
 </div>

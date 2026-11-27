@@ -441,3 +441,10 @@ Reworked the dedicated list detail into a compact Command OS recipient schedule 
 Production sponsor refresh had stopped because both scheduled `workspace:sponsor-leads` events retained 24-hour overlap locks with no process running. AlphaLink now uses a supervised `schedule:work` service; the five-minute and daily replay locks expire after 15 minutes and 180 minutes. The guarded installer migrates old timer units and supports rollback. The scheduler regression passes 1 test / 5 assertions and the sponsor cache-refresh regression passes 1 / 6; targeted Pint, Bash syntax and diff checks pass.
 
 Release `721fa33a3e701b6a4d66d58088f58a27cc6e2707` is active on `baseheavy.shop`, verified backup and local HTTPS `/up` passed, the new scheduler is active, and the old timer is inactive. After confirming no job process, exactly two stale mutexes were cleared. The automatic five-minute run started at 19:45 UTC and released its lock. A real one-day sync returned no recent rows from three saved sponsors; the ten-day replay successfully imported 41 EUR 369.00 provider conversions (all unlinked from current campaigns/Drops), latest dated Nov 23. The existing importer invalidated Dashboard caches after the new rows. I did not open or sign into the app because it requires the proxy. No send or DMS operation occurred; dashboard/sponsor DMS parity remains TESTING.
+
+
+### Warmup DOMAIN route selection — E-MDOM-20 (2026-11-27)
+
+The Warmup composer now offers DOMAIN alongside IP, VMTA, and SMTP, loads ready per-IP sending-domain assignments for the selected servers, and labels each choice by hostname, physical IP, and server. Warmup form state uses the same field names as its request, so the selected route and assignments survive validation errors. The existing Warmup run preparation and message builder already validate current assignment eligibility and enforce matching From and Return-Path domains.
+
+No focused test, browser check, live Warmup send, or production deployment was performed for this slice. DMS-WARMUP-001 remains INVESTIGATING; sending acceptance, delivery, mailbox receipt, and DMS parity remain unverified.

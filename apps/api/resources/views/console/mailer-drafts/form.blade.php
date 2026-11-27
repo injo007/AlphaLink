@@ -8,8 +8,8 @@
     $setup = (array) old('send_setup', $content['send_setup'] ?? []);
     $selectedSegments = array_map('strval', old('send_setup.audience_segments', $setup['audience_segments'] ?? []));
     $selectedEmailTypes = array_map('strval', old('send_setup.email_types', $setup['email_types'] ?? []));
-    $selectedServers = array_map('strval', old('send_setup.server_ids', $setup['server_ids'] ?? []));
-    $selectedIps = array_map('strval', old('send_setup.ip_ids', $setup['ip_ids'] ?? []));
+    $selectedServers = array_map('strval', old($isWarmup ? 'server_ids' : 'send_setup.server_ids', $setup['server_ids'] ?? []));
+    $selectedIps = array_map('strval', old($isWarmup ? 'ip_ids' : 'send_setup.ip_ids', $setup['ip_ids'] ?? []));
     $selectedEmailTestAddresses = old('email_test_addresses', $content['email_test_addresses'] ?? []);
     if (! is_array($selectedEmailTestAddresses)) {
         $selectedEmailTestAddresses = preg_split('/[\r\n,;]+/', (string) $selectedEmailTestAddresses, -1, PREG_SPLIT_NO_EMPTY) ?: [];
@@ -34,8 +34,8 @@
     $selectedSponsor = old('send_setup.sponsor_id', $setup['sponsor_id'] ?? '');
     $selectedOffer = old('send_setup.offer_id', $setup['offer_id'] ?? '');
     $selectedIsp = old('send_setup.isp_id', $setup['isp_id'] ?? '');
-    $selectedRoute = old('send_setup.route_option', $setup['route_option'] ?? 'ip');
-    $selectedIpType = old('send_setup.ip_type', $setup['ip_type'] ?? 'all');
+    $selectedRoute = old($isWarmup ? 'route_option' : 'send_setup.route_option', $setup['route_option'] ?? 'ip');
+    $selectedIpType = old($isWarmup ? 'ip_type' : 'send_setup.ip_type', $setup['ip_type'] ?? 'all');
     $pmtaPanelTargets = collect($sendOptions['servers'])
         ->mapWithKeys(fn (array $server): array => [(string) $server['id'] => $server['pmta_panel_display_url'] ?? $server['pmta_panel_url'] ?? null])
         ->filter(fn ($url): bool => filled($url))
@@ -287,6 +287,7 @@
                                 <option value="ip" @selected($selectedRoute === 'ip')>IP</option>
                                 <option value="vmta" @selected($selectedRoute === 'vmta')>VMTA</option>
                                 <option value="smtp" @selected($selectedRoute === 'smtp')>SMTP</option>
+                                <option value="domain" @selected($selectedRoute === 'domain')>DOMAIN</option>
                             </select>
                         </div>
                         <div class="form-group col-sm-12 col-md-2 mb-0">
@@ -1262,7 +1263,10 @@
         selected.replaceChildren();
         (rows || []).forEach(row => {
             const id = String(row.id);
-            const label = `${row.ip} | ${String(row.type).toUpperCase()} | ${row.dns || 'no DNS'} — server ${row.server_id}`;
+            const route = byId('send-route')?.value || 'ip';
+            const label = route === 'domain'
+                ? `${row.domain || row.dns} | ${row.ip} | ${row.server_name || `server ${row.server_id}`}`
+                : `${row.ip} | ${String(row.type).toUpperCase()} | ${row.dns || 'no DNS'} — server ${row.server_id}`;
             const isSelected = selectedIds.has(id);
             const storedOption = new Option(label, id, false, isSelected);
             storedOption.dataset.serverId = String(row.server_id);
@@ -1422,13 +1426,27 @@
     byId('send-route')?.addEventListener('change', () => {
         const heading = byId('send-route-choice-heading');
         const route = byId('send-route')?.value || 'ip';
+        const routeLabel = ({ip: 'IPs', vmta: 'VMTAs', smtp: 'SMTP routes', domain: 'Sending domains'})[route] || 'IPs';
         if (heading) {
-            heading.textContent = route === 'smtp' ? 'SMTP routes' : (route === 'vmta' ? 'VMTAs' : 'IPs');
+            heading.textContent = routeLabel;
         }
         const availLabel = byId('available-send-ips-label');
-        if (availLabel) availLabel.textContent = `Available ${heading ? heading.textContent : 'IPs'}`;
+        if (availLabel) availLabel.textContent = `Available ${routeLabel}`;
         const selLabel = byId('selected-send-ips-label');
-        if (selLabel) selLabel.textContent = `Selected ${heading ? heading.textContent : 'IPs'}`;
+        if (selLabel) selLabel.textContent = `Selected ${routeLabel}`;
+        const routeFilterName = route === 'domain' ? 'sending domains' : routeLabel.toLowerCase();
+        byId('available-send-ips-filter')?.setAttribute('placeholder', `Filter available ${routeFilterName}`);
+        byId('available-send-ips-filter')?.setAttribute('aria-label', `Filter available ${routeFilterName}`);
+        byId('selected-send-ips-filter')?.setAttribute('placeholder', `Filter selected ${routeFilterName}`);
+        byId('selected-send-ips-filter')?.setAttribute('aria-label', `Filter selected ${routeFilterName}`);
+        byId('available-send-ips')?.setAttribute('aria-label', `Available ${routeLabel}`);
+        byId('selected-send-ips')?.setAttribute('aria-label', `Selected ${routeLabel}`);
+        const emptyRoutes = byId('send-ips-empty');
+        if (emptyRoutes) {
+            emptyRoutes.lastChild.textContent = route === 'domain'
+                ? 'No ready sending-domain assignments are available for the selected servers.'
+                : 'No IPs or MTAs are available for the selected servers and route.';
+        }
     });
     byId('drop-segments')?.addEventListener('change', syncSegmentCount);
     byId('refresh-drop-lists')?.addEventListener('click', refresh);

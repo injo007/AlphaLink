@@ -409,15 +409,16 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             ->get(['id', 'name', 'user_id']);
         $content = $draft?->latestRevision?->payload ?? [];
         $savedSetup = (array) ($content['send_setup'] ?? []);
+        $warmupInput = $kind === 'warmup';
         $filters = [
             'sponsor_id' => $request->query('sponsor_id', $savedSetup['sponsor_id'] ?? null),
             'offer_country' => $request->query('offer_country', $savedSetup['offer_country'] ?? 'ALL'),
             'isp_id' => $request->query('isp_id', $savedSetup['isp_id'] ?? ($content['isp_id'] ?? null)),
             // Load every Geo into the composer; its multi-select filters locally.
             'country' => $request->query('country', 'ALL'),
-            'server_ids' => $request->query('server_ids', $savedSetup['server_ids'] ?? []),
-            'route' => $request->query('route', $savedSetup['route_option'] ?? 'ip'),
-            'ip_type' => $request->query('ip_type', $savedSetup['ip_type'] ?? 'all'),
+            'server_ids' => $request->query('server_ids', $request->session()->getOldInput($warmupInput ? 'server_ids' : 'send_setup.server_ids', $savedSetup['server_ids'] ?? [])),
+            'route' => $request->query('route', $request->session()->getOldInput($warmupInput ? 'route_option' : 'send_setup.route_option', $savedSetup['route_option'] ?? 'ip')),
+            'ip_type' => $request->query('ip_type', $request->session()->getOldInput($warmupInput ? 'ip_type' : 'send_setup.ip_type', $savedSetup['ip_type'] ?? 'all')),
         ];
         if (! is_array($filters['server_ids'])) {
             $filters['server_ids'] = [];

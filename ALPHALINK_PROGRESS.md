@@ -1,8 +1,14 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-27
-**Active objective:** Populate Email Test from saved-email selections and test edited recipients without saving/reopening the Warmup.
-**Current implementation status:** Release `874d92e92f15c486478534c52de4a6df406835ce` on `baseheavy.shop` includes E-CAMP-175: Saved Emails append on selector changes, and Edit Test uses the current Email Test recipients without saving the draft; message and routing use the latest saved revision. PHP 8.5 lint/Pint, Blade compilation, inline JavaScript syntax, and diff checks pass. No automated test or authenticated app check was run. Backup `/var/backups/alphalink/deploy-874d92e92f15c486478534c52de4a6df406835ce-20261127T153222Z.dump` is verified; PHP-FPM, Horizon, suppression worker, and scheduler are active; local HTTPS `/up` returned 200 and deployed source hashes match. DMS-WARMUP-001 remains INVESTIGATING. Earlier Sidebar, Redirects, Domains, Settings, and E-CAMP-174 work remains documented below.
+**Active objective:** Hide restricted sidebar sections for Mailer accounts.
+**Current implementation status:** E-IAM-17 makes Domain Management, Operations Overview, and Analytics & Insights invisible in the sidebar for non-full-access Mailer accounts. Saved per-page filtering and direct-route/API permissions remain unchanged. PHP lint, Pint, and diff checks pass; automated role/sidebar and authenticated UI checks were not run, and the app was not opened or logged into. Production release, backup, service, and local HTTPS verification are recorded below. Keep ALPHALINK-IAM-001 IMPLEMENTING.
+
+### Mailer sidebar visibility — E-IAM-17 (2026-11-27)
+
+The Command OS sidebar now omits Domain Management, Operations Overview, and Analytics & Insights for non-full-access accounts whose account type is Mailer. The policy uses the navigation's stable group IDs, so custom saved section ordering does not affect visibility. Other pages continue to follow each account's saved View/Manage permissions, and no direct web or API authorization was changed. This is an explicit AlphaLink `APPROVED_DEVIATION`; historical DMS behavior is UNKNOWN.
+
+PHP syntax, Pint, and `git diff --check` pass. No automated role/sidebar regression or authenticated UI check was run; no app login was attempted. The guarded deployment fetched the feature commit, verified the rollback backup and required services, confirmed active release/source revision, and passed server-local HTTPS `/up` health. ALPHALINK-IAM-001 remains IMPLEMENTING pending permission persistence and UI tests.
 
 ### Warmup selected seed inbox preview — E-CAMP-174 (2026-11-27)
 

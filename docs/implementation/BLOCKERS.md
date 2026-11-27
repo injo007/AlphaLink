@@ -2,6 +2,10 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-27 Mailer sidebar visibility — E-IAM-17
+
+The explicit Mailer request is implemented in `AccessRolePolicy`: non-full-access Mailer accounts do not see Domain Management, Operations Overview, or Analytics & Insights, while remaining destinations retain saved-permission filtering. This is navigation-only; direct route/API policy is unchanged. PHP lint, Pint, and diff checks pass. Automated role/sidebar and authenticated UI checks were not run, and the app was not opened or logged into. The guarded deploy and independent release/service/HTTPS checks are recorded in E-IAM-17. Keep ALPHALINK-IAM-001 IMPLEMENTING pending executed permission and UI checks; historical DMS behavior is UNKNOWN.
+
 ## 2026-11-27 Warmup saved-email selection and immediate test recipients — E-CAMP-175
 
 The composer now copies selected Saved Emails into the editable Email Test field immediately. Edit Test uses the current recipient field without saving the draft, while its message and send route remain bound to the latest saved revision. PHP 8.5 lint/Pint, Blade compilation, inline JavaScript syntax and diff checks pass; no focused UI/persistence/current-recipient regression or authenticated app check ran, and no PMTA test email was sent. Commit `874d92e92f15c486478534c52de4a6df406835ce` is pushed and active on AlphaLink; verified backup `/var/backups/alphalink/deploy-874d92e92f15c486478534c52de4a6df406835ce-20261127T153222Z.dump`, active required services, matching deployed source hashes and local HTTPS `/up` 200 were confirmed. DMS-WARMUP-001 remains INVESTIGATING.

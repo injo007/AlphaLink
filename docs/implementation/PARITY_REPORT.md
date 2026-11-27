@@ -2,6 +2,12 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## Mailer sidebar visibility — E-IAM-17 (2026-11-27)
+
+The user requested that Mailer accounts not see pages they cannot use and specifically named Domain Management, Operations Overview, and Analytics & Insights. `AccessRolePolicy::filterNavigation` now omits those three stable Command OS groups for accounts whose type is Mailer and whose access role is not Owner/Admin. Existing per-destination permission filtering continues for other groups. No named-route or API authorization changed, and the rule does not hide the groups from full-access users.
+
+This is an explicit AlphaLink `APPROVED_DEVIATION`; historical DMS visibility is UNKNOWN. PHP lint, Pint, and `git diff --check` pass. Automated role/sidebar and authenticated UI checks were not run; the app was not opened or logged into. Commit and guarded production deployment verification are recorded in E-IAM-17. Keep `ALPHALINK-IAM-001` IMPLEMENTING until role, persistence, and UI tests are executed.
+
 ## Campaign SMTP identity tags — E-CAMP-173 (2026-11-26)
 
 For the historical Campaigns authoring route `GET /mailer/campaigns` and its create/edit content workflow (DMS-CAMP-001), AlphaLink now expands `[api_main_domain]` from the selected SMTP username's part after `@`, `[brand_api]` from the brand label before its common public suffix, and `[user]` from the username alias before `@`. Domain output is lowercased. When the SMTP username has no `@`, `[user]` is the whole username and the two domain tags are empty. The Create/Edit tag bar and help dialog describe the tags. IP-route Campaign Test fails before transport if these tags are used without exactly one linked SMTP account; selecting an explicit SMTP route binds them to that account.

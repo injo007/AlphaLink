@@ -9,6 +9,13 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class AccessRolePolicy
 {
+    /** @var list<string> */
+    private const MAILER_HIDDEN_NAVIGATION_GROUPS = [
+        'nav-v2-domain-management',
+        'nav-v2-operations-overview',
+        'nav-v2-analytics-insights',
+    ];
+
     public function isFullAccess(?string $role): bool
     {
         return in_array($role, [User::ACCESS_ROLE_OWNER, User::ACCESS_ROLE_ADMIN], true);
@@ -85,6 +92,10 @@ class AccessRolePolicy
                 continue;
             }
 
+            if ($this->isHiddenMailerNavigationGroup($item, $user)) {
+                continue;
+            }
+
             $children = isset($item['items']) && is_array($item['items'])
                 ? $this->filterNavigation($item['items'], $user, $router, $workspaceRole)
                 : [];
@@ -109,6 +120,18 @@ class AccessRolePolicy
         }
 
         return array_values($filtered);
+    }
+
+    /** @param array<string, mixed> $item */
+    private function isHiddenMailerNavigationGroup(array $item, User $user): bool
+    {
+        if ($user->type !== User::MAILER || $user->hasFullAccess()) {
+            return false;
+        }
+
+        $groupKey = $item['id'] ?? $item['navigation_group_key'] ?? null;
+
+        return is_string($groupKey) && in_array($groupKey, self::MAILER_HIDDEN_NAVIGATION_GROUPS, true);
     }
 
     private function navigationDestinationAllowed(string $href, User $user, Router $router, ?string $workspaceRole): bool

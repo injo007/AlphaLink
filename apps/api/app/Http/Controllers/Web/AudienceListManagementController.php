@@ -23,14 +23,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AudienceListManagementController extends Controller
 {
-    private const MANAGE_ROLES = ['owner', 'admin'];
-
     private const LOCK_TYPES = ['fresh', 'delivery', 'open', 'click', 'lead', 'unsubscribe'];
 
     public function index(Request $request, string $workspaceId): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeViewer($request->user());
 
         return view('console.infrastructure.lists.index', [
             'workspace' => $workspace,
@@ -41,7 +39,7 @@ class AudienceListManagementController extends Controller
     public function rows(Request $request, string $workspaceId, int $ispId): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeViewer($request->user());
         $isp = $workspace->isps()->whereKey($ispId)->firstOrFail();
         $lists = $isp->lists()
             ->where('workspace_id', $workspace->getKey())
@@ -103,7 +101,7 @@ class AudienceListManagementController extends Controller
     public function uploadForm(Request $request, string $workspaceId, string $listId): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
         $this->assertEditableSourceList($list);
 
@@ -117,7 +115,7 @@ class AudienceListManagementController extends Controller
     public function upload(Request $request, string $workspaceId, string $listId, ImportAudienceListContacts $importer): RedirectResponse|JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
         $this->assertEditableSourceList($list);
         $data = $request->validate([
@@ -172,7 +170,7 @@ class AudienceListManagementController extends Controller
     public function importStatus(Request $request, string $workspaceId, string $listId, string $batchId): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
         $batch = AudienceListImportBatch::query()
             ->where('workspace_id', $workspace->getKey())
@@ -186,7 +184,7 @@ class AudienceListManagementController extends Controller
     public function downloadImportExample(Request $request, string $workspaceId): StreamedResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeViewer($request->user());
 
         return response()->streamDownload(static function (): void {
             echo "sample.one@example.test,Sample,One,US,30,unspecified,example\n";
@@ -197,7 +195,7 @@ class AudienceListManagementController extends Controller
     public function create(Request $request, string $workspaceId, int $ispId): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $isp = $workspace->isps()->whereKey($ispId)->firstOrFail();
 
         return view('console.infrastructure.lists.form', [
@@ -210,7 +208,7 @@ class AudienceListManagementController extends Controller
     public function edit(Request $request, string $workspaceId, string $listId): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
         $this->assertEditableSourceList($list);
 
@@ -224,7 +222,7 @@ class AudienceListManagementController extends Controller
     public function store(Request $request, string $workspaceId, int $ispId): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $list = DB::transaction(function () use ($request, $workspace, $ispId): AudienceList {
             $isp = $workspace->isps()->whereKey($ispId)->lockForUpdate()->firstOrFail();
             $data = $this->validatedList($request, $isp);
@@ -261,7 +259,7 @@ class AudienceListManagementController extends Controller
     public function update(Request $request, string $workspaceId, string $listId): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
         $this->assertEditableSourceList($list);
         $isp = $workspace->isps()->whereKey($list->isp_id)->firstOrFail();
@@ -275,7 +273,7 @@ class AudienceListManagementController extends Controller
     public function destroy(Request $request, string $workspaceId, string $listId): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
         abort_if(
             $list->segment_source_list_id !== null && ! $this->isOrphanedSegment($list, $workspace),
@@ -300,7 +298,7 @@ class AudienceListManagementController extends Controller
     public function setStatus(Request $request, string $workspaceId, string $listId): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
         $this->assertEditableSourceList($list);
         $data = $request->validate(['status' => ['required', 'boolean']]);
@@ -313,7 +311,7 @@ class AudienceListManagementController extends Controller
     public function setTracking(Request $request, string $workspaceId, string $listId): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
         $this->assertEditableSourceList($list);
         $data = $request->validate(['track' => ['required', 'boolean']]);
@@ -326,7 +324,7 @@ class AudienceListManagementController extends Controller
     public function setLock(Request $request, string $workspaceId, string $listId): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
         $this->assertEditableSourceList($list);
         $data = $request->validate([
@@ -347,7 +345,7 @@ class AudienceListManagementController extends Controller
     {
         abort_unless(in_array($type, ['users', 'sponsors'], true), 404);
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
         $this->assertEditableSourceList($list);
         $items = $type === 'users'
@@ -367,7 +365,7 @@ class AudienceListManagementController extends Controller
     {
         abort_unless(in_array($type, ['users', 'sponsors'], true), 404);
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $data = $request->validate([
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['required', 'uuid', 'distinct'],
@@ -397,7 +395,7 @@ class AudienceListManagementController extends Controller
     {
         abort_unless(in_array($type, ['users', 'sponsors'], true), 404);
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
         $this->assertEditableSourceList($list);
         $field = $type === 'users' ? 'users' : 'sponsors';
@@ -422,7 +420,7 @@ class AudienceListManagementController extends Controller
     {
         abort_unless(in_array($type, ['users', 'sponsors'], true), 404);
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $this->authorizeManager($workspace);
+        $this->authorizeManager($request->user());
         $field = $type === 'users' ? 'users' : 'sponsors';
         $exists = $type === 'users'
             ? Rule::exists('workspace_user', 'user_id')->where('workspace_id', $workspace->getKey())->where('role', 'operator')
@@ -477,12 +475,17 @@ class AudienceListManagementController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId): Workspace
     {
-        return app(WorkspaceAccess::class)->find($user, $workspaceId, self::MANAGE_ROLES);
+        return app(WorkspaceAccess::class)->find($user, $workspaceId);
     }
 
-    private function authorizeManager(Workspace $workspace): void
+    private function authorizeViewer(User $user): void
     {
-        abort_unless(in_array($workspace->pivot->role, self::MANAGE_ROLES, true), 403);
+        abort_unless($user->hasFullAccess() || $user->hasPermission('audiences.view'), 403);
+    }
+
+    private function authorizeManager(User $user): void
+    {
+        abort_unless($user->hasFullAccess() || $user->hasPermission('audiences.manage'), 403);
     }
 
     private function assertEditableSourceList(AudienceList $list): void

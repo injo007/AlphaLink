@@ -270,7 +270,7 @@ class MiscellaneousConsoleController extends Controller
 
     public function subscribers(Request $request, string $workspace): View|JsonResponse
     {
-        $workspace = $this->adminWorkspace($request->user(), $workspace);
+        $workspace = $this->privacyDataWorkspace($request->user(), $workspace);
         $columns = ['id', 'email', 'country', 'state', 'city', 'device', 'platform', 'browser', 'is_mobile', 'created_at'];
 
         if ($request->wantsJson() || $request->has('json')) {
@@ -282,7 +282,7 @@ class MiscellaneousConsoleController extends Controller
 
     public function contacts(Request $request, string $workspace): View|JsonResponse
     {
-        $workspace = $this->adminWorkspace($request->user(), $workspace);
+        $workspace = $this->privacyDataWorkspace($request->user(), $workspace);
         $columns = ['id', 'full_name', 'email', 'phone', 'message', 'ip', 'country', 'state', 'city', 'device', 'platform', 'browser', 'is_mobile', 'created_at'];
 
         if ($request->wantsJson() || $request->has('json')) {
@@ -294,7 +294,7 @@ class MiscellaneousConsoleController extends Controller
 
     public function horizon(Request $request, string $workspace): View
     {
-        $workspace = $this->adminWorkspace($request->user(), $workspace);
+        $workspace = $this->privacyDataWorkspace($request->user(), $workspace);
         abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
         $available = class_exists(HorizonServiceProvider::class) && Route::has('horizon.index');
         $connection = (string) config('queue.default', 'unknown');
@@ -358,10 +358,10 @@ class MiscellaneousConsoleController extends Controller
         ]);
     }
 
-    private function adminWorkspace(User $user, string $workspaceId): Workspace
+    private function privacyDataWorkspace(User $user, string $workspaceId): Workspace
     {
         $workspace = $this->workspaceFor($user, $workspaceId);
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'privacy_officer'], true), 403);
+        abort_unless($user->hasFullAccess() || $user->hasPermission('privacy_data.view'), 403);
 
         return $workspace;
     }

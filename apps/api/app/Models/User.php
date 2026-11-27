@@ -113,10 +113,16 @@ class User extends Authenticatable
     ];
 
     /** @var list<string> */
+    public const MAILER_PMTA_PERMISSIONS = [
+        'pmta.view', 'pmta.manage', 'audiences.view', 'privacy_data.view', 'provider_network.view', 'isp_geo.view',
+    ];
+
+    /** @var list<string> */
     public const MAILER_SENDING_PERMISSIONS = [
         'campaigns.view', 'campaigns.manage', 'campaign_logs.view', 'campaign_headers.view',
         'campaign_headers.manage', 'global_tests.view', 'global_tests.manage', 'audiences.view',
         'privacy_data.view', 'offers.view', 'provider_network.view', 'isp_geo.view', 'domains.view', 'mail_servers.view',
+        ...self::MAILER_PMTA_PERMISSIONS,
     ];
 
     /** @use HasFactory<UserFactory> */
@@ -210,7 +216,12 @@ class User extends Authenticatable
             return ['*'];
         }
 
-        return self::normalizePermissions($this->roles ?? self::defaultPermissions((string) $this->access_role));
+        $permissions = self::normalizePermissions($this->roles ?? self::defaultPermissions((string) $this->access_role));
+        if ($this->type === self::MAILER) {
+            $permissions = array_values(array_unique([...$permissions, ...self::MAILER_PMTA_PERMISSIONS]));
+        }
+
+        return $permissions;
     }
 
     public function hasPermission(string $permission): bool

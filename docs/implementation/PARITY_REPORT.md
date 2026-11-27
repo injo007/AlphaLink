@@ -2,6 +2,12 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## Mailer PMTA route permissions — E-IAM-19 (2026-11-27)
+
+The user reported Mailer 403 responses on ISP, Lists, Subscribers, Contacts, and Domain Provider pages, and explicitly requested access to all PMTA Management. Mailer effective permissions now always include PMTA view/manage plus read access for those support-page permission groups. Existing custom and legacy-null Mailer records are covered. Named-route mapping assigns My Servers and My IPs to PMTA permissions; the PMTA menu action now follows `pmta.manage`. ISP and Domain Provider listing controllers now use workspace membership for scoping; the List page/rows, Contacts, and Subscribers controllers enforce view permissions, and list mutations remain manage-gated. This does not grant full permissions to non-PMTA application groups; the previously hidden Domain Management, Operations Overview, and Analytics & Insights groups remain hidden.
+
+No DMS behavior was used or inferred. PHP 8.5 syntax/Pint, Blade compilation, and `git diff --check` pass. Focused role tests were not run and no authenticated UI check was performed; no app login was attempted. GitHub push and deployment are pending. Keep ALPHALINK-IAM-001 IMPLEMENTING until the required permission and UI checks execute.
+
 ## User management navigation consolidation — E-IAM-18 (2026-11-27)
 
 The user requested one user-management destination. The sidebar now exposes Global User Accounts without a separate Workspace Members link. In the workspace context, Global User Accounts provides a Workspace Access action to the existing membership page, which links back to Global User Accounts. The `GET /app/users` and `GET /app/workspaces/{workspace}/users` workflows and existing full-access route checks remain unchanged. `GlobalNavigationOrder::apply` only places current destinations, so old saved Workspace Members keys cannot recreate the removed sidebar item. This explicit AlphaLink UI rule is an `APPROVED_DEVIATION`; historical DMS navigation is UNKNOWN.

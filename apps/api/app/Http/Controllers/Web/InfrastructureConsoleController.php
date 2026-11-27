@@ -577,7 +577,7 @@ class InfrastructureConsoleController extends Controller
 
     public function isps(Request $request, string $workspaceId): View|JsonResponse
     {
-        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
         $isps = $workspace->isps()->withCount('lists')->orderBy('id')->get();
 
         if ($request->wantsJson()) {
@@ -1258,7 +1258,7 @@ class InfrastructureConsoleController extends Controller
 
     public function domainProvidersIndex(Request $request, string $workspaceId): View|JsonResponse
     {
-        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
 
         if ($request->wantsJson()) {
             $providers = DomainProvider::query()

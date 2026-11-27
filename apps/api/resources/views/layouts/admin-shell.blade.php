@@ -155,7 +155,7 @@
         $hasWorkspaceAdminRole = in_array($workspaceNavigationRole, ['owner', 'admin'], true);
         $hasFullWorkspaceAccess = (auth()->user()?->hasFullAccess() ?? false) || $hasWorkspaceAdminRole;
         $canManageInfrastructure = $hasFullWorkspaceAccess;
-        $canManagePmta = $hasFullWorkspaceAccess;
+        $canManagePmta = $hasFullWorkspaceAccess || auth()->user()->hasPermission('pmta.manage');
         $canManageSponsors = $hasFullWorkspaceAccess;
         $canManageGlobalUsers = auth()->user()->hasRole('manage_users');
         $sponsorsUrl = route('clean.console.sponsors.index');

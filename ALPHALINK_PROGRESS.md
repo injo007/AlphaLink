@@ -1,8 +1,14 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-27
-**Active objective:** Improve Redirects & Rotators domain discovery, filtering, and responsive presentation.
-**Current implementation status:** E-TRACK-55 adds URL-backed domain search, server and endpoint-state filters, 25-row pagination, and a phone layout that preserves every endpoint field. PHP 8.5 lint/Pint, Blade compilation, CSS parsing, strict UI audit, and diff checks pass. The pushed code release is active on AlphaLink; its active/fetched revision matches, backup restore listing and required services pass, `/up` returns 200, and deployed controller/view hashes match. No behavior tests or authenticated UI review were run; keep the feature IMPLEMENTING.
+**Active objective:** Fix Mailer PMTA authorization and restore the PMTA support pages shown in the user screenshots.
+**Current implementation status:** E-IAM-19 updates Mailer effective permissions so the PMTA management routes and the reported ISP, Lists, Contacts, Subscribers, and Domain Provider pages are available even with custom or legacy-null permission records. PHP 8.5 syntax/Pint, Blade compilation, and `git diff --check` pass. Focused role tests were not run and no authenticated app review/login occurred. GitHub push and AlphaLink deployment are pending. No app login or authenticated UI review will be performed; keep ALPHALINK-IAM-001 IMPLEMENTING until permission tests and UI behavior are verified.
+
+### Mailer PMTA access — E-IAM-19 (2026-11-27)
+
+Mailer accounts now get PMTA view/manage permissions plus read access to the ISP, Lists/Audiences, Contacts/Subscribers, and Domain Provider pages shown as 403 in the user's screenshots. The baseline is part of effective permissions, so it also applies to previously saved custom or legacy-null permission records. PMTA My Servers/My IPs links are mapped to the PMTA permission group. The ISP and Domain Provider list pages now use workspace membership for scoping, while per-route permissions gate them; list and contact/subscriber reads enforce their view permissions, and list mutations still require manage permission. Existing hidden Mailer sidebar groups remain hidden.
+
+Validation and deployment are pending. No automated tests or authenticated UI review have been run, and the app was not opened or logged into. Keep ALPHALINK-IAM-001 IMPLEMENTING.
 
 ### Redirects & Rotators domain discovery — E-TRACK-55 (2026-11-27)
 

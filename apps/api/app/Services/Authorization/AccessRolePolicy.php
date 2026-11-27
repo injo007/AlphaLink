@@ -39,7 +39,7 @@ class AccessRolePolicy
             return $role === User::ACCESS_ROLE_OPERATOR;
         }
 
-        if ($user instanceof User && $user->roles !== null) {
+        if ($user instanceof User && ($user->roles !== null || $user->type === User::MAILER)) {
             $permissionGroup = $this->webRoutePermissionGroup($routeName);
             if ($permissionGroup === null) {
                 return false;
@@ -250,6 +250,13 @@ class AccessRolePolicy
 
     private function webRoutePermissionGroup(string $routeName): ?string
     {
+        if ($this->matchesAny($routeName, [
+            'console.my-servers.*',
+            'console.infrastructure.my-ips',
+            'console.infrastructure.my-ips.export',
+        ])) {
+            return 'pmta';
+        }
         if ($this->matchesAny($routeName, ['console.index', 'console.dashboard.*', 'console.workspace.dashboard.*', 'console.workspace'])) {
             return 'dashboard';
         }

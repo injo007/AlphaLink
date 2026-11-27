@@ -14,7 +14,7 @@ class AlphaLinkProfilePasswordTest extends TestCase
 
     public function test_authenticated_user_can_open_profile_password_form(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['type' => User::ADMIN]);
 
         $this->actingAs($user)->get(route('auth.profile'))
             ->assertOk()
@@ -31,7 +31,7 @@ class AlphaLinkProfilePasswordTest extends TestCase
 
     public function test_password_change_requires_the_current_password(): void
     {
-        $user = User::factory()->create(['password' => 'Current-password-2026']);
+        $user = User::factory()->create(['type' => User::ADMIN, 'password' => 'Current-password-2026']);
 
         $this->actingAs($user)->post(route('auth.change_password'), [
             'current_password' => 'incorrect-password',
@@ -45,7 +45,7 @@ class AlphaLinkProfilePasswordTest extends TestCase
 
     public function test_password_change_rejects_the_current_password_and_invalid_replacements(): void
     {
-        $user = User::factory()->create(['password' => 'Current-password-2026']);
+        $user = User::factory()->create(['type' => User::ADMIN, 'password' => 'Current-password-2026']);
 
         $this->actingAs($user)->post(route('auth.change_password'), [
             'current_password' => 'Current-password-2026',
@@ -71,7 +71,7 @@ class AlphaLinkProfilePasswordTest extends TestCase
 
     public function test_successful_password_change_saves_hash_and_logs_user_out(): void
     {
-        $user = User::factory()->create(['password' => 'Current-password-2026']);
+        $user = User::factory()->create(['type' => User::ADMIN, 'password' => 'Current-password-2026']);
 
         $this->actingAs($user)->post(route('auth.change_password'), [
             'current_password' => 'Current-password-2026',
@@ -91,7 +91,7 @@ class AlphaLinkProfilePasswordTest extends TestCase
 
     public function test_sign_in_invalidates_other_password_sessions_and_keeps_the_current_session(): void
     {
-        $user = User::factory()->create(['password' => 'Current-password-2026']);
+        $user = User::factory()->create(['type' => User::ADMIN, 'password' => 'Current-password-2026']);
         $oldPasswordHash = $user->password;
 
         $this->post(route('login.store'), [

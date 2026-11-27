@@ -129,7 +129,13 @@ class AuthController extends Controller
             // Sign-in must succeed even if external Telegram notifications fail.
         }
 
-        return redirect()->route('console.dashboard.main');
+        $landingRoute = match (true) {
+            $authenticatedUser->type === User::MAILER && $authenticatedUser->hasPermission('campaigns.view') => 'console.mailer.campaigns',
+            $authenticatedUser->type === User::MAILER => 'clean.console.infrastructure.my-ips',
+            default => 'console.dashboard.main',
+        };
+
+        return redirect()->route($landingRoute);
     }
 
     public function destroy(Request $request): RedirectResponse

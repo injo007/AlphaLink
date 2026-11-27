@@ -82,7 +82,7 @@ class AlphaLinkGlobalUserManagementTest extends TestCase
 
         $this->post(route('logout'));
         $this->post(route('login.store'), ['username' => 'UPDATEDMAILER', 'password' => 'Updated-password-2026'])
-            ->assertRedirect(route('console.dashboard.main'));
+            ->assertRedirect(route('clean.console.infrastructure.my-ips'));
         $this->assertAuthenticatedAs($user);
     }
 

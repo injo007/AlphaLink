@@ -14,7 +14,11 @@ class CleanWorkspaceEntryRoutesTest extends TestCase
 
     public function test_login_redirects_to_the_reference_dashboard_path(): void
     {
-        $user = User::factory()->create(['email' => 'clean-routes@example.test', 'password' => 'test-password']);
+        $user = User::factory()->create([
+            'type' => User::ADMIN,
+            'email' => 'clean-routes@example.test',
+            'password' => 'test-password',
+        ]);
         $workspace = Workspace::query()->create([
             'name' => 'Clean Routes Workspace',
             'slug' => 'clean-routes-'.Str::lower(Str::random(6)),
@@ -25,6 +29,56 @@ class CleanWorkspaceEntryRoutesTest extends TestCase
 
         $this->post(route('login.store'), ['email' => $user->email, 'password' => 'test-password'])
             ->assertRedirect('/dashboard/main');
+    }
+
+    public function test_mailer_login_redirects_to_campaigns_when_campaign_view_is_allowed(): void
+    {
+        $user = User::factory()->create([
+            'type' => User::MAILER,
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'roles' => ['campaigns.view', 'campaigns.manage'],
+            'email' => 'campaign-mailer@example.test',
+            'password' => 'test-password',
+        ]);
+        $workspace = Workspace::query()->create([
+            'name' => 'Campaign Mailer Workspace',
+            'slug' => 'campaign-mailer-'.Str::lower(Str::random(6)),
+            'status' => 'active',
+            'created_by' => $user->getKey(),
+        ]);
+        $workspace->users()->attach($user->getKey(), ['role' => 'operator', 'joined_at' => now()]);
+
+        $this->withSession(['url.intended' => route('console.dashboard.main')])
+            ->post(route('login.store'), ['email' => $user->email, 'password' => 'test-password'])
+            ->assertRedirect(route('console.mailer.campaigns'));
+
+        $this->get(route('console.mailer.campaigns'))->assertOk();
+        $this->get(route('console.dashboard.main'))->assertForbidden();
+    }
+
+    public function test_mailer_without_campaign_view_uses_an_authorized_pmta_landing_page(): void
+    {
+        $user = User::factory()->create([
+            'type' => User::MAILER,
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'roles' => [],
+            'email' => 'pmta-mailer@example.test',
+            'password' => 'test-password',
+        ]);
+        $workspace = Workspace::query()->create([
+            'name' => 'PMTA Mailer Workspace',
+            'slug' => 'pmta-mailer-'.Str::lower(Str::random(6)),
+            'status' => 'active',
+            'created_by' => $user->getKey(),
+        ]);
+        $workspace->users()->attach($user->getKey(), ['role' => 'operator', 'joined_at' => now()]);
+
+        $this->post(route('login.store'), ['email' => $user->email, 'password' => 'test-password'])
+            ->assertRedirect(route('clean.console.infrastructure.my-ips'));
+
+        $this->get(route('clean.console.infrastructure.my-ips'))->assertOk();
+        $this->get(route('console.mailer.campaigns'))->assertForbidden();
+        $this->get(route('console.dashboard.main'))->assertForbidden();
     }
 
     public function test_clean_dashboard_and_server_routes_do_not_expose_workspace_ids(): void

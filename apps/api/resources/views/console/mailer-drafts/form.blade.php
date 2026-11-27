@@ -94,7 +94,7 @@
             <li><a href="#" class="text-muted" aria-disabled="true" title="Save this draft before sending"><span>{{ $isDrop ? 'SEND DROP' : 'CREATE & SEND WARMUP' }} — SAVE DRAFT FIRST</span><i class="fas fa-paper-plane"></i></a></li>
         @endif
         @if ($draft)
-            <li><a href="#" data-test-action title="Send a PMTA test to the saved Email Test addresses"><span>TEST</span><i class="fas fa-vial"></i></a></li>
+            <li><a href="#" data-test-action title="Test the latest saved message and route using the current Email Test addresses"><span>TEST</span><i class="fas fa-vial"></i></a></li>
         @else
             <li><a href="#" class="text-muted" aria-disabled="true" title="Save this draft before testing"><span>TEST — SAVE DRAFT FIRST</span><i class="fas fa-vial"></i></a></li>
         @endif
@@ -115,6 +115,7 @@
         @csrf
         <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
         <input type="hidden" name="send_type" value="{{ $isWarmup ? ($content['send_type'] ?? $setup['send_type'] ?? 'delay') : ($setup['send_type'] ?? $content['send_type'] ?? 'delay') }}">
+        <input type="hidden" name="email_test_addresses_text" value="{{ $emailTestText }}">
     </form>
     <form id="mailer-draft-send-action" method="post" action="{{ $sendUrl }}" hidden>
         @csrf
@@ -145,7 +146,7 @@
         </div>
     </div>
     <div class="block-content block-content-full">
-        <p class="small text-muted mb-3 {{ $isWarmup ? 'warmup-composer-note' : '' }}" role="note">AlphaLink draft · changes are saved as a revision. Save the latest revision before sending a test to the saved Email Test addresses.</p>
+        <p class="small text-muted mb-3 {{ $isWarmup ? 'warmup-composer-note' : '' }}" role="note">AlphaLink draft · save to keep composer changes. Test uses the current Email Test addresses with the latest saved message and routing revision.</p>
         @if (session('status'))<div class="alert alert-success" role="status">{{ session('status') }}</div>@endif
         @if ($errors->any())
             <div class="alert alert-danger" role="alert"><strong>Review these fields:</strong><ul class="mb-0 mt-2">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
@@ -1514,12 +1515,17 @@
     syncSelectedSeedAccounts();
     refresh();
 
-    byId('add-saved-email')?.addEventListener('click', () => {
+    const appendSelectedSavedEmails = () => {
         const selected = multiValues(byId('saved-emails'));
         const textarea = byId('email-test-addresses');
+        if (!textarea) return;
         const existing = new Set((textarea.value || '').split(/[\r\n,;]+/).map(value => value.trim().toLowerCase()).filter(Boolean));
         selected.forEach(value => { if (!existing.has(value.toLowerCase())) { textarea.value += `${textarea.value.trim() ? '\n' : ''}${value}`; existing.add(value.toLowerCase()); } });
-    });
+    };
+    const savedEmailSelect = byId('saved-emails');
+    savedEmailSelect?.addEventListener('change', appendSelectedSavedEmails);
+    if (window.jQuery && savedEmailSelect) window.jQuery(savedEmailSelect).on('changed.bs.select', appendSelectedSavedEmails);
+    byId('add-saved-email')?.addEventListener('click', appendSelectedSavedEmails);
     byId('mailer-header-shuffle')?.addEventListener('click', () => {
         const header = byId('mailer-header');
         const lines = readEditor(headerEditor, header).split(/\r?\n/);
@@ -1562,6 +1568,8 @@
         event.preventDefault();
         const testForm = byId('mailer-draft-test-action');
         if (!testForm) return;
+        const testAddresses = testForm.querySelector('[name="email_test_addresses_text"]');
+        if (testAddresses) testAddresses.value = byId('email-test-addresses')?.value || '';
         const key = testForm.querySelector('[name="idempotency_key"]');
         if (key && window.crypto?.randomUUID) key.value = window.crypto.randomUUID();
         testForm.requestSubmit();

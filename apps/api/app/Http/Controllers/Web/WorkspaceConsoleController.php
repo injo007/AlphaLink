@@ -1586,6 +1586,7 @@ class WorkspaceConsoleController extends Controller
         $data = $request->validate([
             'idempotency_key' => ['required', 'uuid'],
             'send_type' => ['sometimes', 'string', Rule::in(['delay', 'delayp', 'delayps', 'hs', 'hsp', 'hsps', 'pickup', 'pickups'])],
+            'email_test_addresses_text' => ['sometimes', 'nullable', 'string', 'max:20000'],
         ]);
         $campaign = $workspace->campaigns()
             ->with('latestRevision')
@@ -1597,13 +1598,27 @@ class WorkspaceConsoleController extends Controller
         $revision = $campaign->latestRevision;
         abort_unless($revision, 409, 'Save the campaign before testing it.');
         $payload = $revision->payload;
-        $emailTests = $payload['email_tests'] ?? $payload['email_test_addresses'] ?? [];
-        if (! is_array($emailTests) || $emailTests === []) {
+        $emailTests = array_key_exists('email_test_addresses_text', $data)
+            ? (preg_split('/[\r\n,;]+/', (string) ($data['email_test_addresses_text'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) ?: [])
+            : ($payload['email_tests'] ?? $payload['email_test_addresses'] ?? []);
+        if (! is_array($emailTests)) {
+            $emailTests = [];
+        }
+        $emailTests = collect($emailTests)
+            ->map(fn ($address): string => trim((string) $address))
+            ->filter()
+            ->unique(fn (string $address): string => mb_strtolower($address))
+            ->values()
+            ->all();
+        if (count($emailTests) > 50) {
+            throw ValidationException::withMessages(['email_test_addresses' => 'Use no more than 50 Email Test addresses.']);
+        }
+        if ($emailTests === []) {
             if ($request->expectsJson()) {
                 return response()->json(['data' => 'No email test'], 400);
             }
 
-            throw ValidationException::withMessages(['email_test_addresses' => 'No Email Test addresses are saved for this campaign.']);
+            throw ValidationException::withMessages(['email_test_addresses' => 'Enter at least one Email Test address.']);
         }
 
         $sendSetup = $payload['send_setup'] ?? [];

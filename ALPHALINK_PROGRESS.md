@@ -8,7 +8,7 @@
 
 The Command OS sidebar now omits Domain Management, Operations Overview, and Analytics & Insights for non-full-access accounts whose account type is Mailer. The policy uses the navigation's stable group IDs, so custom saved section ordering does not affect visibility. Other pages continue to follow each account's saved View/Manage permissions, and no direct web or API authorization was changed. This is an explicit AlphaLink `APPROVED_DEVIATION`; historical DMS behavior is UNKNOWN.
 
-PHP syntax, Pint, and `git diff --check` pass. No automated role/sidebar regression or authenticated UI check was run; no app login was attempted. The guarded deployment fetched the feature commit, verified the rollback backup and required services, confirmed active release/source revision, and passed server-local HTTPS `/up` health. ALPHALINK-IAM-001 remains IMPLEMENTING pending permission persistence and UI tests.
+PHP syntax, PHP 8.5 Pint, and `git diff --check` pass. No automated role/sidebar regression or authenticated UI check was run; no app login was attempted. Commit `58aa92e8333233b7d89efa4100c9e656ae49f356` is active on `baseheavy.shop`; the installer backup `/var/backups/alphalink/deploy-58aa92e8333233b7d89efa4100c9e656ae49f356-20261127T163126Z.dump` passes `pg_restore --list`. Independent checks confirm the active release and fetched SHA match, PHP-FPM/Horizon/suppression worker/scheduler are active, the deployed policy source is present, and server-local HTTPS `/up` returns 200. ALPHALINK-IAM-001 remains IMPLEMENTING pending permission persistence and UI tests.
 
 ### Warmup selected seed inbox preview — E-CAMP-174 (2026-11-27)
 

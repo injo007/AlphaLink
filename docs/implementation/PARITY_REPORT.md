@@ -6,7 +6,7 @@
 
 The user requested that Mailer accounts not see pages they cannot use and specifically named Domain Management, Operations Overview, and Analytics & Insights. `AccessRolePolicy::filterNavigation` now omits those three stable Command OS groups for accounts whose type is Mailer and whose access role is not Owner/Admin. Existing per-destination permission filtering continues for other groups. No named-route or API authorization changed, and the rule does not hide the groups from full-access users.
 
-This is an explicit AlphaLink `APPROVED_DEVIATION`; historical DMS visibility is UNKNOWN. PHP lint, Pint, and `git diff --check` pass. Automated role/sidebar and authenticated UI checks were not run; the app was not opened or logged into. Commit and guarded production deployment verification are recorded in E-IAM-17. Keep `ALPHALINK-IAM-001` IMPLEMENTING until role, persistence, and UI tests are executed.
+This is an explicit AlphaLink `APPROVED_DEVIATION`; historical DMS visibility is UNKNOWN. PHP lint, PHP 8.5 Pint, and `git diff --check` pass. Automated role/sidebar and authenticated UI checks were not run; the app was not opened or logged into. Commit `58aa92e8333233b7d89efa4100c9e656ae49f356` is active on AlphaLink. The guarded installer verified backup `/var/backups/alphalink/deploy-58aa92e8333233b7d89efa4100c9e656ae49f356-20261127T163126Z.dump`, all four required services, active/fetched revision match, the deployed policy file, and server-local HTTPS `/up` (200). Keep `ALPHALINK-IAM-001` IMPLEMENTING until role, persistence, and UI tests are executed.
 
 ## Campaign SMTP identity tags — E-CAMP-173 (2026-11-26)
 

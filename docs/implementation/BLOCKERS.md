@@ -2,6 +2,10 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-27 Mailer post-login landing — E-IAM-20
+
+Mailer sign-in now chooses Campaigns only when the user's existing permissions include `campaigns.view`; otherwise it selects the permission-backed PMTA My IPs route. This avoids sending limited Mailers to a dashboard or Campaigns route they cannot access. Synthetic route checks pass 3 / 11 assertions, and Profile/authentication tests pass 6 / 33 in PHP 8.5.12. Pint and diff checks pass. Commit `2bfa25fcc8ac27fe1b48b4be5d31928bd806e6c5` is pushed to GitHub `master` and active on AlphaLink `baseheavy.shop`. The release backup `/var/backups/alphalink/deploy-2bfa25fcc8ac27fe1b48b4be5d31928bd806e6c5-20261127T223700Z.dump` passes `pg_restore --list`; PHP-FPM, Horizon, suppression, and scheduler services are active; the deployed `AuthController` hash matches local source; and server-local HTTPS `/up` returns 200. The app was not logged into; authenticated UI verification remains pending. Historical DMS behavior is UNKNOWN; keep ALPHALINK-IAM-001 IMPLEMENTING.
+
 ## 2026-11-27 User management navigation consolidation — E-IAM-18
 
 Global User Accounts is now the only user-management sidebar destination. In-page Workspace Access navigation preserves the existing workspace membership page and its route checks. PHP syntax checks for the three changed Blade files and `git diff --check` pass. Commit `a2d1312add987f4422356d17aee37d7b5f46b932` is pushed and deployed on AlphaLink; active/fetched release, required services, deployed Blade hashes, backup `/var/backups/alphalink/deploy-a2d1312add987f4422356d17aee37d7b5f46b932-20261127T165702Z.dump` (`pg_restore --list`), and server-local HTTPS `/up` (200) are verified. No automated test or authenticated UI check ran. Keep ALPHALINK-IAM-001 IMPLEMENTING. Historical DMS behavior is UNKNOWN.

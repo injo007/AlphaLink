@@ -2,6 +2,12 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## Mailer post-login landing — E-IAM-20 (2026-11-27)
+
+The user requested that Mailers land on Campaigns after sign-in and not be sent to pages they cannot access. `AuthController::store` now sends a Mailer with `campaigns.view` to the workspace Campaigns route. A Mailer without campaign view permission lands on the existing PMTA My IPs route, which the Mailer PMTA permission baseline allows. Admin/other account types retain the dashboard destination. No permissions, workspace membership, or stored data changed.
+
+`CleanWorkspaceEntryRoutesTest` passes 3 tests / 11 assertions for admin destination retention, a permitted Mailer Campaigns destination with a denied dashboard, and a non-Campaigns Mailer PMTA destination with Campaigns/dashboard denied. `AlphaLinkProfilePasswordTest` passes 6 / 33. PHP 8.5.12 Pint and `git diff --check` pass. No DMS behavior was used or inferred. Commit `2bfa25fcc8ac27fe1b48b4be5d31928bd806e6c5` is pushed to GitHub `master` and active on AlphaLink `baseheavy.shop`. The release backup `/var/backups/alphalink/deploy-2bfa25fcc8ac27fe1b48b4be5d31928bd806e6c5-20261127T223700Z.dump` passes `pg_restore --list`; PHP-FPM, Horizon, suppression, and scheduler services are active; the deployed `AuthController` hash matches local source; and server-local HTTPS `/up` returns 200. No production login or authenticated browser check was performed; keep ALPHALINK-IAM-001 IMPLEMENTING pending authenticated UI verification.
+
 ## Mailer PMTA route permissions — E-IAM-19 (2026-11-27)
 
 The user reported Mailer 403 responses on ISP, Lists, Subscribers, Contacts, and Domain Provider pages, and explicitly requested access to all PMTA Management. Mailer effective permissions now always include PMTA view/manage plus read access for those support-page permission groups. Existing custom and legacy-null Mailer records are covered. Named-route mapping assigns My Servers and My IPs to PMTA permissions; the PMTA menu action now follows `pmta.manage`. ISP and Domain Provider listing controllers now use workspace membership for scoping; the List page/rows, Contacts, and Subscribers controllers enforce view permissions, and list mutations remain manage-gated. This does not grant full permissions to non-PMTA application groups; the previously hidden Domain Management, Operations Overview, and Analytics & Insights groups remain hidden.

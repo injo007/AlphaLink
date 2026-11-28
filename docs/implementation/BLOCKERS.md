@@ -4,7 +4,7 @@
 
 ## 2026-11-28 Campaign/Warmup send-path reliability — E-CAMP-177
 
-The reported Campaign refresh/save behavior, cross-route 429 collision, and 600 ms unit conversion are fixed locally and covered by focused synthetic tests. The refresh/save UI still needs authenticated AlphaLink verification; the app was not logged into, per the user's standing instruction. Deployment is blocked because the active checkout at `/media/akmed/4CF25768F25754F41/Alphalink` has no repository-root `.env`. The earlier named path is a separate checkout with a different commit, so its credentials cannot be used for this task.
+The reported Campaign refresh/save behavior, cross-route 429 collision, and 600 ms unit conversion are fixed, covered by focused synthetic tests, and deployed as `6e5a80b3de6359c16d673a32f38b9b847fda8278` on AlphaLink `baseheavy.shop`. The installer verified the local HTTPS health check and PHP-FPM, Horizon, suppression, and scheduler services. Authenticated UI verification remains unperformed because the app was not logged into, per the user's standing instruction; no real send or suppression job ran.
 
 The broader Send Type task remains open: DMS Campaign/Warmup/Drop mode-specific algorithms and the effects of Duplicate Data, Test After, Bounce Limit, and Fraction IP are delegated to an opaque native sender. AlphaLink's worker still applies a shared strategy to accepted mode labels. Do not claim full Send Type behavior or parity without an authoritative sender contract/source or user-provided definitions. No DMS runtime or send was executed.
 

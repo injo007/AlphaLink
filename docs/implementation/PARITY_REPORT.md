@@ -2,6 +2,12 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## Mailer 404 follow-up and Owner-only user deletion — E-IAM-22 (2026-11-28)
+
+The screenshot shows a Mailer at `/dashboard/main` receiving 404. In the source, Mailer login already routes to Campaigns when `campaigns.view` is present and to PMTA My IPs otherwise. The pre-E-IAM-21 deployed user-creation path did not create a `workspace_user` record, while `ResolveCurrentWorkspace` returns 404 without an active workspace. This explains the new-account failure at source level; the production row was not inspected, and the E-IAM-21 fix remains local pending push/deploy. Previously created users are not automatically assigned to a workspace.
+
+Global User Accounts adds Owner-only `DELETE /app/users/{user}`. A successful deletion disables the account and soft-deletes it, preserving linked memberships and historical foreign keys; its username remains reserved. Admins cannot see/use the action; self-deletion and Owner deletion fail with 409. The focused `AlphaLinkGlobalUserManagementTest` passes 10 tests / 121 assertions, covering the Mailer create/login path, role authorization, table visibility, deleted-account login rejection and retained workspace history. PHP 8.5 Pint, syntax, route registration and Blade cache compilation pass; no DMS behavior was reviewed and no parity is claimed. The app was not logged into and production is not yet updated. Keep ALPHALINK-IAM-001 IMPLEMENTING.
+
 ## Global account workspace assignment — E-IAM-21 (2026-11-28)
 
 The reported new-user 404 was caused by Global User Accounts creating a `users` row without a `workspace_user` row. The local `ResolveCurrentWorkspace` middleware returns 404 when a regular account has no active workspace association. Global User Accounts now requires a creator-accessible active workspace and attaches the created user in the same database transaction as global-role assignment, before returning login credentials. The form defaults to the current workspace or the sole available workspace; inaccessible/inactive workspace IDs fail validation. Existing unassigned accounts are unchanged.

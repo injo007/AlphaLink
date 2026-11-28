@@ -276,6 +276,37 @@ class GlobalUserManagementController extends Controller
         return response()->json(['data' => $saved ? 'Changed successfully' : 'Failed'], $saved ? 200 : 400);
     }
 
+    public function destroy(Request $request, User $user): JsonResponse|RedirectResponse
+    {
+        $actor = $this->authorizeUserManagement($request);
+        abort_unless($actor->isOwner(), 403, 'Only the Owner can delete user accounts.');
+
+        $avatarPath = DB::transaction(function () use ($actor, $user): ?string {
+            $lockedActor = User::query()->whereKey($actor->getKey())->lockForUpdate()->firstOrFail();
+            abort_unless($lockedActor->isOwner(), 403, 'Only the Owner can delete user accounts.');
+
+            $target = User::query()->whereKey($user->getKey())->lockForUpdate()->firstOrFail();
+            abort_if($lockedActor->is($target), 409, 'You cannot delete your own account.');
+            abort_if($target->isOwner(), 409, 'Transfer ownership before deleting the Owner account.');
+
+            $path = $target->avatar_path;
+            $target->forceFill(['is_active' => false])->save();
+            $target->delete();
+
+            return $path;
+        });
+
+        if (is_string($avatarPath) && $avatarPath !== '') {
+            Storage::disk('local')->delete($avatarPath);
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json(['data' => 'User deleted']);
+        }
+
+        return redirect()->route('console.global-users.index')->with('status', 'User deleted.');
+    }
+
     public function password(Request $request, User $user): View
     {
         $actor = $this->authorizeUserManagement($request);
@@ -357,7 +388,7 @@ class GlobalUserManagementController extends Controller
                 return;
             }
 
-            $query = User::query()->whereRaw('LOWER(username) = LOWER(?)', [$value]);
+            $query = User::query()->withTrashed()->whereRaw('LOWER(username) = LOWER(?)', [$value]);
             if ($ignore instanceof User) {
                 $query->where('id', '!=', $ignore->getKey());
             }

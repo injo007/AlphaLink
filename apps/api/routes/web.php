@@ -78,6 +78,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/users/{user}/avatar', [GlobalUserManagementController::class, 'avatar'])->whereNumber('user')->name('console.global-users.avatar');
     Route::get('/app/users/{user}/edit', [GlobalUserManagementController::class, 'edit'])->whereNumber('user')->name('console.global-users.edit');
     Route::put('/app/users/{user}', [GlobalUserManagementController::class, 'update'])->whereNumber('user')->middleware('throttle:10,1')->name('console.global-users.update');
+    Route::delete('/app/users/{user}', [GlobalUserManagementController::class, 'destroy'])->whereNumber('user')->middleware('throttle:10,1')->name('console.global-users.destroy');
     Route::patch('/app/users/{user}/status', [GlobalUserManagementController::class, 'status'])->whereNumber('user')->middleware('throttle:10,1')->name('console.global-users.status');
     Route::get('/app/users/{user}/password', [GlobalUserManagementController::class, 'password'])->whereNumber('user')->name('console.global-users.password');
     Route::put('/app/users/{user}/password', [GlobalUserManagementController::class, 'updatePassword'])->whereNumber('user')->middleware('throttle:10,1')->name('console.global-users.password.update');

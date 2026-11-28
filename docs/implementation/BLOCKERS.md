@@ -2,6 +2,12 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-28 Mailer 404 and Owner-only user deletion — E-IAM-22
+
+The user's screenshot shows `/dashboard/main` returning 404. The production AuthController source already redirects Mailers to Campaigns or PMTA My IPs, but the deployed Global User Management controller at `2bfa25f` created accounts without workspace membership. The AlphaLink `ResolveCurrentWorkspace` middleware returns 404 when a regular account has no active workspace. E-IAM-21 fixes future creations by validating an active, creator-accessible workspace and attaching the new user before credentials are returned; this commit is still local, so production is not fixed yet. Existing unassigned users require Workspace Access assignment. The account's production row was not inspected.
+
+Owner-only deletion is implemented as soft deletion: it immediately disables authentication and hides the user while preserving workspace and audit/history references. Admins cannot invoke or see the delete action. Owner self-deletion and deleting an Owner account return 409. `AlphaLinkGlobalUserManagementTest` passes 10 tests / 121 assertions, including both account types, membership persistence, UI/route permission checks, history retention and deleted-account login rejection. Pint, PHP lint, Blade cache compilation, and route registration pass. No production login or database change ran. Push/deploy remain blocked until the current task changes can be authenticated and the configured root deployment `.env` is available. DMS behavior is UNKNOWN; keep ALPHALINK-IAM-001 IMPLEMENTING.
+
 ## 2026-11-28 Global account workspace assignment — E-IAM-21
 
 Global User Accounts previously created users without a `workspace_user` association. `ResolveCurrentWorkspace` returns 404 for regular users without an active workspace, explaining the post-login failure. New account creation now requires an active workspace available to the creator and persists membership atomically with role assignment before returning credentials. The active/only workspace is preselected when possible. This fixes future creations; previously created unassigned users still need a manager to attach them in Workspace Access. The authenticated production UI was not opened or logged into, per the user's instruction. DMS history is UNKNOWN; keep ALPHALINK-IAM-001 IMPLEMENTING.

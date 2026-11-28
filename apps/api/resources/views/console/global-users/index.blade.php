@@ -27,7 +27,10 @@
         <!-- 2. Info Banner -->
         <div class="command-os-info-banner" role="note">
             <div class="command-os-info-banner-icon" aria-hidden="true"><i class="fas fa-info-circle"></i></div>
-                    <div class="command-os-info-banner-content">
+            <div class="command-os-info-banner-content">
+                @if (session('status'))
+                    <strong class="text-success d-block mb-1" role="status">{{ session('status') }}</strong>
+                @endif
                 @if ($workspace)
                     Global access roles control pages across AlphaLink. Workspace membership still scopes each account's data.
                 @else
@@ -69,6 +72,13 @@
                                             <a class="command-action-btn action-warning" href="{{ route('console.global-users.password', $user->id) }}" title="EDIT PASSWORD" aria-label="Edit password for {{ $user->username }}"><i class="fas fa-key" aria-hidden="true"></i></a>
                                             @if (auth()->user()->canImpersonate() && $user->canBeImpersonated())
                                                 <form method="post" action="{{ route('console.global-users.impersonation.start', $user->id) }}" class="d-inline">@csrf<button class="command-action-btn action-login" type="submit" title="IMPERSONATE OPERATOR" aria-label="Impersonate {{ $user->username }}"><i class="fas fa-user-ninja" aria-hidden="true"></i></button></form>
+                                            @endif
+                                            @if (auth()->user()->isOwner() && ! auth()->user()->is($user) && ! $user->isOwner())
+                                                <form method="post" action="{{ route('console.global-users.destroy', $user->id) }}" class="d-inline" onsubmit="return confirm('Delete {{ addslashes($user->username) }}? They will lose access immediately. Existing workspace records will be retained.');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button class="command-action-btn action-danger" type="submit" title="DELETE USER" aria-label="Delete {{ $user->username }}"><i class="fas fa-trash-alt" aria-hidden="true"></i></button>
+                                                </form>
                                             @endif
                                         @else
                                             <span class="badge badge-light border text-muted px-2 py-1" title="Only the Owner can manage this account">Owner protected</span>

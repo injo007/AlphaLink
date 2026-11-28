@@ -1,8 +1,14 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-28
-**Active objective:** Fix Global User Accounts so newly created accounts can resolve a workspace after sign-in — E-IAM-21.
-**Current implementation status:** Global account creation now requires an active workspace the creator can access and links the new account inside the same transaction that assigns its global role. The credentials are returned only after both records persist. PHP 8.5.12 focused tests pass (8 tests / 89 assertions), covering workspace validation, both account types, and a synthetic Mailer sign-in to Campaigns; Pint passes. Existing unassigned accounts are not changed. Production login remains prohibited by the user's instruction, and this change has not yet been deployed. Keep ALPHALINK-IAM-001 IMPLEMENTING.
+**Active objective:** Resolve the Mailer post-login 404 by ensuring every new account has an active workspace, and add Owner-only user deletion — E-IAM-22.
+**Current implementation status:** The production-auth redirect source is permission-aware, but the deployed user-creation controller did not assign workspace membership. The E-IAM-21 fix exists locally and requires deployment; without membership, `ResolveCurrentWorkspace` returns 404. The current change adds Owner-only soft deletion, disables the deleted account immediately, and retains workspace/history rows. Focused PHP 8.5 tests pass (10 tests / 121 assertions), including Mailer sign-in and no access for deleted accounts; Pint, PHP syntax, Blade cache compilation, and route registration pass. No authenticated app login was attempted. Deployment has not been run.
+
+### Owner-only user deletion and Mailer 404 follow-up — E-IAM-22 (2026-11-28)
+
+The supplied screenshot shows a Mailer redirected to `/dashboard/main` and receiving 404. The production-authored redirect fix sends Mailers to Campaigns or PMTA My IPs, depending on `campaigns.view`. A source comparison shows the deployed global account-creation controller did not assign `workspace_user`; the local `ResolveCurrentWorkspace` middleware returns 404 when no active workspace is associated. E-IAM-21 adds active-workspace selection and persists membership transactionally, but it has not been pushed/deployed; the production database was not inspected, so the cause is source-supported rather than directly confirmed for this account.
+
+The Global User Accounts table now displays Delete only to the Owner for other non-Owner accounts. `DELETE /app/users/{user}` rechecks Owner authority under a row lock, blocks self/Owner deletion, disables and soft-deletes the account, and removes its private avatar while retaining workspace membership and history references. Soft-deleted accounts disappear from user queries and cannot authenticate; their usernames remain reserved. `AlphaLinkGlobalUserManagementTest` passes 10 tests / 121 assertions for both account types, membership persistence, permission-gated delete UI/route, deletion retention, and login rejection; Pint, PHP syntax, Blade cache compilation, and route registration pass. DMS behavior is UNKNOWN. No production login or database mutation was performed; deployment remains pending because the repository-root `.env` and usable GitHub SSH authentication are unavailable. Keep ALPHALINK-IAM-001 IMPLEMENTING.
 
 ### Global account workspace assignment — E-IAM-21 (2026-11-28)
 

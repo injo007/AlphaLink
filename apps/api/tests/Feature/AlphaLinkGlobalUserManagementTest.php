@@ -156,6 +156,110 @@ class AlphaLinkGlobalUserManagementTest extends TestCase
         }
     }
 
+    public function test_owner_can_soft_delete_admin_and_mailer_accounts_without_removing_workspace_history(): void
+    {
+        $owner = User::factory()->create([
+            'type' => User::ADMIN,
+            'access_role' => User::ACCESS_ROLE_OWNER,
+            'roles' => [],
+        ]);
+        $workspace = $this->workspaceFor($owner);
+        $admin = User::factory()->create([
+            'username' => 'deleteadmin',
+            'type' => User::ADMIN,
+            'access_role' => User::ACCESS_ROLE_ADMIN,
+            'roles' => [],
+        ]);
+        $mailer = User::factory()->create([
+            'username' => 'deletemailer',
+            'type' => User::MAILER,
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'roles' => ['campaigns.view'],
+            'password' => 'Deleted-Mailer-Password-2026',
+        ]);
+        $workspace->users()->attach($admin->getKey(), ['role' => User::ACCESS_ROLE_ADMIN]);
+        $workspace->users()->attach($mailer->getKey(), ['role' => User::ACCESS_ROLE_OPERATOR]);
+
+        $this->actingAs($owner)->get(route('console.global-users.index'))
+            ->assertOk()
+            ->assertSee('DELETE USER')
+            ->assertSee('data-user-row="'.$admin->getKey().'"', false)
+            ->assertSee('data-user-row="'.$mailer->getKey().'"', false);
+
+        foreach ([$admin, $mailer] as $target) {
+            $this->deleteJson(route('console.global-users.destroy', $target))
+                ->assertOk()
+                ->assertJsonPath('data', 'User deleted');
+
+            $this->assertSoftDeleted('users', ['id' => $target->getKey()]);
+            $this->assertDatabaseHas('users', [
+                'id' => $target->getKey(),
+                'is_active' => false,
+            ]);
+            $this->assertDatabaseHas('workspace_user', [
+                'user_id' => $target->getKey(),
+                'workspace_id' => $workspace->getKey(),
+            ]);
+        }
+
+        $this->actingAs($owner)->get(route('console.global-users.index'))
+            ->assertOk()
+            ->assertDontSee('deleteadmin')
+            ->assertDontSee('deletemailer');
+        $this->assertNull(User::query()->find($mailer->getKey()));
+
+        $this->actingAs($owner)->postJson(route('console.global-users.store'), [
+            'username' => 'deletemailer',
+            'full_name' => 'Replacement Deleted Mailer',
+            'type' => User::MAILER,
+            'workspace_id' => $workspace->getKey(),
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'permission_selection_submitted' => '1',
+            'roles' => ['campaigns.view'],
+        ])->assertUnprocessable()->assertJsonValidationErrors(['username']);
+
+        $this->post(route('logout'));
+        $this->post(route('login.store'), [
+            'username' => 'deletemailer',
+            'password' => 'Deleted-Mailer-Password-2026',
+        ])->assertSessionHasErrors('username');
+    }
+
+    public function test_only_owner_can_delete_users_and_owner_cannot_delete_self_or_another_owner(): void
+    {
+        $owner = User::factory()->create([
+            'type' => User::ADMIN,
+            'access_role' => User::ACCESS_ROLE_OWNER,
+            'roles' => [],
+        ]);
+        $anotherOwner = User::factory()->create([
+            'type' => User::ADMIN,
+            'access_role' => User::ACCESS_ROLE_OWNER,
+            'roles' => [],
+        ]);
+        $admin = User::factory()->create([
+            'type' => User::ADMIN,
+            'access_role' => User::ACCESS_ROLE_ADMIN,
+            'roles' => [],
+        ]);
+
+        $this->actingAs($admin)->get(route('console.global-users.index'))
+            ->assertOk()
+            ->assertDontSee('DELETE USER');
+        $this->actingAs($admin)->deleteJson(route('console.global-users.destroy', $anotherOwner))
+            ->assertForbidden();
+        $this->actingAs($owner)->deleteJson(route('console.global-users.destroy', $owner))
+            ->assertConflict();
+        $this->deleteJson(route('console.global-users.destroy', $anotherOwner))
+            ->assertConflict();
+        $this->deleteJson(route('console.global-users.destroy', $admin))
+            ->assertOk();
+
+        $this->assertNotSoftDeleted('users', ['id' => $owner->getKey()]);
+        $this->assertNotSoftDeleted('users', ['id' => $anotherOwner->getKey()]);
+        $this->assertSoftDeleted('users', ['id' => $admin->getKey()]);
+    }
+
     public function test_global_user_routes_allow_reference_role_and_deny_other_mailers(): void
     {
         $manager = User::factory()->create([

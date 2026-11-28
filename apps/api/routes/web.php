@@ -187,9 +187,9 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/drops/suppression/{suppression}/monitor', [WorkspaceDropSuppressionController::class, 'monitor'])
         ->whereNumber('suppression')->name('console.drops.suppression.monitor');
     Route::post('/app/workspaces/{workspace}/drops/suppression/start', [WorkspaceDropSuppressionController::class, 'start'])
-        ->middleware('throttle:5,1')->name('console.drops.suppression.start');
+        ->middleware('throttle:drop-suppression-start')->name('console.drops.suppression.start');
     Route::post('/app/workspaces/{workspace}/drops/suppression/kill', [WorkspaceDropSuppressionController::class, 'kill'])
-        ->middleware('throttle:10,1')->name('console.drops.suppression.kill');
+        ->middleware('throttle:drop-suppression-kill')->name('console.drops.suppression.kill');
     Route::get('/app/workspaces/{workspace}/drops/monitoring', [WorkspaceDropsConsoleController::class, 'monitoring'])->name('console.drops.monitoring');
     Route::get('/app/workspaces/{workspace}/drops/statistics', [WorkspaceDropsConsoleController::class, 'statistics'])->name('console.drops.statistics');
     Route::get('/app/workspaces/{workspace}/drops/drafts', [WorkspaceMailerOperationsConsoleController::class, 'drops'])->name('console.drops.drafts.index');
@@ -332,7 +332,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::delete('/app/workspaces/{workspace}/campaign-negatives/{negativeId}', [WorkspaceCampaignNegativeController::class, 'destroy'])->whereNumber('negativeId')->middleware('throttle:10,1')->name('console.campaign-negatives.destroy');
     Route::post('/app/workspaces/{workspace}/campaigns/check-smtp', [WorkspaceConsoleController::class, 'checkCampaignSmtp'])->middleware('throttle:3,1')->name('console.campaigns.smtp-check');
     Route::get('/app/workspaces/{workspace}/composer/options', [WorkspaceConsoleController::class, 'campaignSendOptions'])->name('console.campaigns.send-options');
-    Route::post('/app/workspaces/{workspace}/campaigns', [WorkspaceConsoleController::class, 'createCampaignDraft'])->middleware('throttle:10,1')->name('console.campaigns.store');
+    Route::post('/app/workspaces/{workspace}/campaigns', [WorkspaceConsoleController::class, 'createCampaignDraft'])->middleware('throttle:campaign-draft-write')->name('console.campaigns.store');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/send', [CampaignSendController::class, 'start'])->middleware('throttle:campaign-send')->name('console.campaigns.send');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/send-runs/{run}/stop', [CampaignSendController::class, 'stop'])->middleware('throttle:campaign-send')->name('console.campaigns.send-stop');
     Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/send-runs/{run}/progress', [CampaignSendController::class, 'progress'])->middleware('throttle:60,1')->name('console.campaigns.send-progress');
@@ -340,7 +340,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/telemetry/restore-domain', [CampaignSendController::class, 'restoreDomain'])->middleware('throttle:30,1')->name('console.campaigns.telemetry.restore-domain');
     Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/snapshot-progress', [WorkspaceConsoleController::class, 'campaignSnapshotProgress'])->name('console.campaigns.snapshot-progress');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/snapshot-retry', [WorkspaceConsoleController::class, 'retryCampaignSnapshot'])->middleware('throttle:3,1')->name('console.campaigns.snapshot-retry');
-    Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/revisions', [WorkspaceConsoleController::class, 'reviseCampaignDraft'])->middleware('throttle:10,1')->name('console.campaigns.revisions.store');
+    Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/revisions', [WorkspaceConsoleController::class, 'reviseCampaignDraft'])->middleware('throttle:campaign-revision-write')->name('console.campaigns.revisions.store');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/generate-body', [CampaignComposerToolsController::class, 'generateBody'])->middleware('throttle:10,1')->name('console.campaigns.generate-body');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/test-email', [WorkspaceConsoleController::class, 'sendCampaignTestEmail'])->name('console.campaigns.test-email');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/pmta-test', [WorkspaceConsoleController::class, 'sendCampaignPmtaTest'])->name('console.campaigns.pmta-test');

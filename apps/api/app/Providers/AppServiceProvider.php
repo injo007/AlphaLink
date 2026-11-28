@@ -44,6 +44,36 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by('campaign-send:'.$actor.':'.$campaign);
         });
 
+        RateLimiter::for('campaign-draft-write', static function (Request $request): Limit {
+            $actor = (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
+            $workspace = (string) ($request->route('workspace') ?? 'global');
+
+            return Limit::perMinute(30)->by('campaign-draft-write:'.$actor.':'.$workspace);
+        });
+
+        RateLimiter::for('campaign-revision-write', static function (Request $request): Limit {
+            $actor = (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
+            $workspace = (string) ($request->route('workspace') ?? 'global');
+            $campaign = (string) ($request->route('campaign') ?? 'unknown');
+
+            return Limit::perMinute(30)->by('campaign-revision-write:'.$actor.':'.$workspace.':'.$campaign);
+        });
+
+        RateLimiter::for('drop-suppression-start', static function (Request $request): Limit {
+            $actor = (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
+            $workspace = (string) ($request->route('workspace') ?? 'global');
+
+            return Limit::perMinute(30)->by('drop-suppression-start:'.$actor.':'.$workspace);
+        });
+
+        RateLimiter::for('drop-suppression-kill', static function (Request $request): Limit {
+            $actor = (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
+            $workspace = (string) ($request->route('workspace') ?? 'global');
+            $suppression = (string) ($request->input('suppression_id') ?? 'unknown');
+
+            return Limit::perMinute(30)->by('drop-suppression-kill:'.$actor.':'.$workspace.':'.$suppression);
+        });
+
         RateLimiter::for('audience-list-import-upload', static function (Request $request): Limit {
             $actor = (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
             $workspace = (string) ($request->route('workspace') ?? 'global');

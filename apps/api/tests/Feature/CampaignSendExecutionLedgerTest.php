@@ -34,6 +34,7 @@ use App\Services\Campaigns\FinalizeCampaignSendRun;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\PrepareCampaignSendRun;
 use App\Services\Campaigns\ReclaimExpiredCampaignSendBatch;
+use App\Services\Campaigns\SendRunPacing;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -353,6 +354,115 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $batch->save();
         $this->artisan('campaigns:recover-sends')->assertSuccessful();
         Queue::assertPushed(ProcessCampaignSendRun::class, 2);
+    }
+
+    public function test_campaign_and_drop_apply_millisecond_waits_and_drop_batch_size_with_fake_transport(): void
+    {
+        config(['cache.default' => 'array']);
+        Queue::fake();
+
+        $cases = [
+            [
+                'kind' => 'marketing',
+                'send_setup' => ['send_type' => 'delay', 'parameters' => [
+                    'total_send' => 2,
+                    'fraction_ip' => 1,
+                    'sleep_email' => 600,
+                    'sleep_ip' => 50,
+                    'seed_every' => 9,
+                    'bounce_limit' => 3,
+                    'duplicate_data' => 2,
+                ]],
+                'expected_batch_size' => 1,
+                'expected_delay_ms' => 650,
+            ],
+            [
+                'kind' => 'drop',
+                'send_setup' => [
+                    'send_type' => 'delayp',
+                    'total_send' => 2,
+                    'fraction_ip' => 1,
+                    'batch' => 1,
+                    'delay' => 125,
+                    'test_after' => 6,
+                    'bounce_limit' => 4,
+                    'duplicate_data' => 3,
+                ],
+                'expected_batch_size' => 1,
+                'expected_delay_ms' => 125,
+            ],
+        ];
+
+        foreach ($cases as $case) {
+            $fixture = $this->sendFixture(recipientCount: 2, sendSetup: $case['send_setup']);
+            $fixture['campaign']->kind = $case['kind'];
+            $fixture['campaign']->save();
+            $run = app(PrepareCampaignSendRun::class)->create(
+                $fixture['campaign'], $fixture['revision'], $fixture['snapshot'], $fixture['owner'], (string) Str::uuid(),
+            );
+            $server = new ManagedServer(['ip_address' => '203.0.113.241']);
+            $context = ['port' => 2525, 'setup' => $case['send_setup']];
+            $builder = Mockery::mock(CampaignSendMessageBuilder::class);
+            $builder->shouldReceive('assertReady')->once()->withArgs(fn (CampaignSendRun $active): bool => $active->is($run))->andReturn($context);
+            $builder->shouldReceive('build')->once()->withArgs(fn (array $messageContext, CampaignRecipientSnapshotItem $item, string $recipient): bool => $messageContext === $context
+                && $item->is($fixture['item']) && $recipient === $fixture['contact']->email
+            )->andReturn([
+                'server' => $server,
+                'header' => "From: sender@example.test\r\nTo: {$fixture['contact']->email}\r\nSubject: Synthetic pacing",
+                'body' => '<p>Synthetic pacing body</p>',
+                'envelope_from' => 'sender@example.test',
+            ]);
+            $transport = Mockery::mock(SmtpTransport::class);
+            $transport->shouldReceive('start')->once();
+            $transport->shouldReceive('send')->once();
+            $transport->shouldReceive('stop')->once();
+            $transportFactory = Mockery::mock(PmtaCampaignTestTransport::class);
+            $transportFactory->shouldReceive('forServer')->once()->with($server, 2525)->andReturn($transport);
+            $before = now()->getTimestampMs();
+
+            app()->call([new ProcessCampaignSendRun((string) $run->getKey()), 'handle'], [
+                'messageBuilder' => $builder,
+                'transportFactory' => $transportFactory,
+                'claimer' => app(ClaimCampaignSendBatch::class),
+                'attemptLifecycle' => app(CampaignDeliveryAttemptLifecycle::class),
+                'reclaimer' => app(ReclaimExpiredCampaignSendBatch::class),
+                'finalizer' => app(FinalizeCampaignSendRun::class),
+                'pacing' => app(SendRunPacing::class),
+            ]);
+
+            $settings = $run->fresh()->execution_options['send_settings'];
+            $parameters = [...$case['send_setup'], ...(array) ($case['send_setup']['parameters'] ?? [])];
+            self::assertSame($case['send_setup']['send_type'], $run->fresh()->send_type);
+            self::assertSame(2, $settings['total_send']);
+            self::assertSame($parameters['duplicate_data'] ?? 1, $settings['duplicate_data']);
+            self::assertSame($parameters['bounce_limit'] ?? 0, $settings['bounce_limit']);
+            self::assertSame($parameters['test_after'] ?? $parameters['seed_every'] ?? 0, $settings['test_after']);
+            self::assertSame($parameters['fraction_ip'] ?? 1, $settings['fraction_ip']);
+            self::assertSame($case['expected_batch_size'], (int) $run->fresh()->next_position - 1);
+            $scheduledWaitMilliseconds = $run->fresh()->execution_options['next_batch_at_ms'] - $before;
+            self::assertGreaterThanOrEqual($case['expected_delay_ms'], $scheduledWaitMilliseconds);
+            self::assertLessThan(5_000, $scheduledWaitMilliseconds, 'A 600 ms setting must not be interpreted as a 600 second delay.');
+        }
+
+        Queue::assertPushed(ProcessCampaignSendRun::class, 2);
+    }
+
+    public function test_drop_send_planner_rejects_campaign_only_send_types(): void
+    {
+        $fixture = $this->sendFixture(sendSetup: ['send_type' => 'pickups']);
+        $fixture['campaign']->kind = 'drop';
+        $fixture['campaign']->save();
+
+        try {
+            app(PrepareCampaignSendRun::class)->create(
+                $fixture['campaign'], $fixture['revision'], $fixture['snapshot'], $fixture['owner'], (string) Str::uuid(),
+            );
+            $this->fail('Drop sends must reject values not offered by the DMS Drop form.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('send_type', $exception->errors());
+        }
+
+        $this->assertSame(0, CampaignSendRun::query()->count());
     }
 
     public function test_background_sender_submits_snapshot_recipients_to_pmta_and_records_acceptance(): void

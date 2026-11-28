@@ -9,13 +9,13 @@ use App\Models\WarmupSendRecipient;
 use App\Models\WarmupSendRun;
 use App\Models\Workspace;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
+use App\Services\Campaigns\SendRunPacing;
 use App\Services\Campaigns\WarmupSendMessageBuilder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -40,11 +40,11 @@ class ProcessWarmupSendRun implements ShouldQueue
         $this->onQueue('campaign-sends');
     }
 
-    public function handle(WarmupSendMessageBuilder $messageBuilder, PmtaCampaignTestTransport $transportFactory): void
+    public function handle(WarmupSendMessageBuilder $messageBuilder, PmtaCampaignTestTransport $transportFactory, SendRunPacing $pacing): void
     {
         $lock = Cache::lock('warmup-send-run:'.$this->sendRunId, 660);
         if (! $lock->get()) {
-            $this->release(15);
+            $this->release(1);
 
             return;
         }
@@ -57,11 +57,14 @@ class ProcessWarmupSendRun implements ShouldQueue
                 return;
             }
             $options = (array) ($run->execution_options ?? []);
-            $nextBatchAt = $options['next_batch_at'] ?? null;
-            if (is_string($nextBatchAt) && $nextBatchAt !== '' && Carbon::parse($nextBatchAt)->isFuture()) {
+            if ($pacing->deferUntil(
+                $pacing->deadlineFromOptions($options),
+                fn (int $seconds) => $this->release($seconds),
+                static fn (int $microseconds) => usleep($microseconds),
+            )) {
                 return;
             }
-            unset($options['next_batch_at']);
+            unset($options['next_batch_at_ms'], $options['next_batch_at']);
             $run->execution_options = $options;
             $run->state = 'running';
             $run->started_at ??= now();
@@ -78,7 +81,7 @@ class ProcessWarmupSendRun implements ShouldQueue
             $emailSleep = max(0, (int) ($options['sleep_email_ms'] ?? 0));
             $ipSleep = max(0, (int) ($options['sleep_ip_ms'] ?? 0));
             $fraction = max(1, (int) ($options['fraction_ip'] ?? 1));
-            $batchSize = $emailSleep > 0 || $ipSleep > 0 ? 1 : 25;
+            $batchSize = $emailSleep > 0 ? 1 : ($ipSleep > 0 ? min(1000, $fraction) : 25);
             $recipients = $run->recipients()->where('state', 'pending')->orderBy('position')->limit($batchSize)->get();
 
             foreach ($recipients as $recipientRow) {
@@ -174,15 +177,24 @@ class ProcessWarmupSendRun implements ShouldQueue
                 return;
             }
 
-            $delay = $emailSleep;
+            $delayMilliseconds = $emailSleep;
             $lastPosition = max(0, (int) $run->next_position - 1);
             if ($ipSleep > 0 && $lastPosition % $fraction === 0) {
-                $delay += $ipSleep;
+                $delayMilliseconds += $ipSleep;
             }
-            if ($delay > 0) {
-                $run->execution_options = [...(array) $run->execution_options, 'next_batch_at' => now()->addSeconds($delay)->toIso8601String()];
+            if ($delayMilliseconds > 0) {
+                $deadlineMilliseconds = $pacing->deadlineAfter($delayMilliseconds);
+                $options = (array) $run->execution_options;
+                unset($options['next_batch_at'], $options['next_batch_at_ms']);
+                $options['next_batch_at_ms'] = $deadlineMilliseconds;
+                $options['next_batch_at'] = $pacing->iso8601Deadline($deadlineMilliseconds);
+                $run->execution_options = $options;
                 $run->save();
-                self::dispatch((string) $run->getKey())->onQueue('campaign-sends')->delay(now()->addSeconds($delay));
+                $job = self::dispatch((string) $run->getKey())->onQueue('campaign-sends');
+                $queueDelaySeconds = $pacing->queueDelaySeconds($delayMilliseconds);
+                if ($queueDelaySeconds > 0) {
+                    $job->delay(now()->addSeconds($queueDelaySeconds));
+                }
             } else {
                 self::dispatch((string) $run->getKey())->onQueue('campaign-sends');
             }

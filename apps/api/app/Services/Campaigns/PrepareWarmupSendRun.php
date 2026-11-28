@@ -56,6 +56,9 @@ class PrepareWarmupSendRun
 
         $startFrom = max(0, (int) ($payload['start_from'] ?? 0));
         $totalSend = max(0, (int) ($payload['total_send'] ?? 0));
+        if ($totalSend < 1) {
+            throw ValidationException::withMessages(['total_send' => 'Warmup Total Send must be at least 1.']);
+        }
         $recipients = [];
         $seen = [];
         $skipped = 0;
@@ -101,6 +104,9 @@ class PrepareWarmupSendRun
         }
 
         $sendType = (string) ($payload['send_type'] ?? $setup['send_type'] ?? 'delay');
+        if (! in_array($sendType, CampaignSendTypeCatalog::CAMPAIGN_AND_WARMUP, true)) {
+            throw ValidationException::withMessages(['send_type' => 'The saved Warmup revision uses an unsupported send type.']);
+        }
         $fingerprint = hash('sha256', json_encode([
             'campaign_id' => (string) $campaign->getKey(),
             'revision_id' => (string) $revision->getKey(),
@@ -156,9 +162,14 @@ class PrepareWarmupSendRun
                 'request_fingerprint' => $fingerprint,
                 'execution_options' => [
                     'start_from' => (int) ($payload['start_from'] ?? 0),
+                    'send_type' => $sendType,
+                    'total_send' => count($recipients),
                     'sleep_email_ms' => max(0, (int) ($payload['sleep_email'] ?? 0)),
                     'sleep_ip_ms' => max(0, (int) ($payload['sleep_ip'] ?? 0)),
                     'fraction_ip' => max(1, (int) ($payload['fraction_ip'] ?? 1)),
+                    'test_after' => max(0, (int) ($payload['test_after'] ?? $payload['seed_every'] ?? 0)),
+                    'seed_every' => max(0, (int) ($payload['seed_every'] ?? 0)),
+                    'bounce_limit' => max(0, (int) ($payload['bounce_limit'] ?? 0)),
                 ],
                 'recipient_count' => count($recipients),
                 'next_position' => 1,

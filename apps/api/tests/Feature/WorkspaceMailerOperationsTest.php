@@ -21,6 +21,7 @@ use App\Models\WorkspaceSeedList;
 use App\Models\WorkspaceSponsor;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
+use App\Services\Campaigns\SendRunPacing;
 use App\Services\Campaigns\WarmupSendMessageBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
@@ -40,10 +41,21 @@ class WorkspaceMailerOperationsTest extends TestCase
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
 
+        $index = $this->actingAs($owner)->get(route('console.warmups.index', $workspace->getKey()));
+        $index->assertOk()->assertSee('id="warmup-analytics-panel" class="campaign-intelligence warmup-analytics-panel" aria-label="Warmup analytics" hidden', false)
+            ->assertDontSee('All Warmups');
+        $this->assertLessThan(
+            strpos($index->getContent(), '<aside id="warmup-analytics-panel"'),
+            strpos($index->getContent(), '<main class="campaign-register-main"'),
+            'Warmup analytics should follow the register in document order.',
+        );
+
         $response = $this->actingAs($owner)->get(route('console.warmups.create', $workspace->getKey()));
 
         $response->assertOk()->assertSee('name="route_option"', false)
-            ->assertSee('<option value="domain"', false)->assertSee('DOMAIN');
+            ->assertSee('<option value="domain"', false)->assertSee('DOMAIN')
+            ->assertSee('TEST CURRENT WARMUP')->assertSee('CREATE &amp; SEND WARMUP', false)
+            ->assertSee('Test uses the open Warmup form without saving first.');
     }
 
     public function test_drop_and_warmup_sidebar_items_open_workspace_pages(): void
@@ -85,6 +97,7 @@ class WorkspaceMailerOperationsTest extends TestCase
         $warmupIndex = $this->actingAs($owner)->get(route('console.warmups.index', $workspace->getKey()));
         $warmupIndex->assertOk()->assertSee('My Warmups')->assertSee('TOTAL SEND')->assertSee('New Warmup')
             ->assertSee('warmup-register-page')->assertSee('warmup-register-overview')
+            ->assertSee('id="warmup-analytics-panel" class="campaign-intelligence warmup-analytics-panel" aria-label="Warmup analytics" hidden', false)
             ->assertSee('Choose warmup date range')->assertDontSee('Date from')
             ->assertSee(route('clean.console.warmups.seeds.index'), false)
             ->assertSee(route('clean.console.warmups.statistics'), false);
@@ -113,7 +126,10 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertStringContainsString('id="mailer-draft-context-menu"', $warmupComposerHtml);
         $this->assertStringContainsString('mailer-draft-navigation.js?v=', $warmupComposerHtml);
         $this->assertStringContainsString('href="'.route('clean.console.pmta-admin.index').'"', $warmupComposerHtml);
-        $this->assertStringContainsString('TEST — SAVE DRAFT FIRST', $warmupComposerHtml);
+        $this->assertStringContainsString('TEST CURRENT WARMUP', $warmupComposerHtml);
+        $this->assertStringContainsString('CREATE &amp; SEND WARMUP', $warmupComposerHtml);
+        $this->assertStringContainsString('name="submission_intent" value="save"', $warmupComposerHtml);
+        $this->assertStringContainsString(route('console.campaigns.manual-test', $workspace->getKey()), $warmupComposerHtml);
         $this->assertStringContainsString('Back to My Warmups', $warmupComposerHtml);
         $this->actingAs($owner)->get(route('console.warmups.statistics', $workspace->getKey()))
             ->assertOk()->assertSee('Warmup Statistics')->assertSee('No Warmup actions in this date range');
@@ -218,7 +234,7 @@ class WorkspaceMailerOperationsTest extends TestCase
             'html_body' => '<p>Edited without rewriting https://example.test/image.jpg</p>',
             'source_revision_id' => $revision->getKey(),
             'idempotency_key' => (string) Str::uuid(),
-        ])->assertRedirect();
+        ])->assertRedirect(route('console.drops.drafts.edit', [$workspace->getKey(), $draft->getKey()]));
 
         $draft->refresh();
         $this->assertSame('Synthetic Drop Updated', $draft->name);
@@ -270,7 +286,7 @@ class WorkspaceMailerOperationsTest extends TestCase
             'seed_list_ids' => [$ownerList->getKey()], 'send_type' => 'delay', 'idempotency_key' => (string) Str::uuid(),
         ])->assertSessionHasErrors('seed_list_ids');
 
-        $this->actingAs($owner)->post(route('console.warmups.store', $workspace->getKey()), [
+        $response = $this->actingAs($owner)->post(route('console.warmups.store', $workspace->getKey()), [
             'name' => 'Synthetic warmup', 'return_path' => 'reply@example.test',
             'email_test_addresses_text' => "qa@example.test\n   \nops@example.test\n",
             'header' => 'Content-Type: text/html', 'html_body' => '<p>Warmup body</p>',
@@ -293,6 +309,95 @@ class WorkspaceMailerOperationsTest extends TestCase
 
         $this->actingAs($owner)->get(route('console.warmups.index', $workspace->getKey()))
             ->assertOk()->assertSee('Synthetic warmup')->assertSee('TOTAL SEND')->assertSee('DRAFT');
+    }
+
+    public function test_warmup_save_updates_latest_revision_and_returns_to_register(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $campaign = Campaign::query()->create([
+            'workspace_id' => $workspace->getKey(), 'created_by' => $owner->getKey(),
+            'name' => 'Editable Warmup', 'kind' => 'warmup', 'status' => 'draft', 'is_active' => true,
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->getKey(), 'revision_number' => 1,
+            'payload' => ['draft_type' => 'warmup', 'send_type' => 'delay', 'header' => 'Subject: Before', 'html_body' => '<p>Before</p>', 'send_setup' => []],
+            'content_sha256' => hash('sha256', 'warmup original '.Str::random(8)),
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'warmup original request '.Str::random(8)),
+            'created_by' => $owner->getKey(), 'created_at' => now(),
+        ]);
+
+        $this->actingAs($owner)->put(route('console.warmups.update', [$workspace->getKey(), $campaign->getKey()]), [
+            'name' => 'Editable Warmup', 'return_path' => 'reply@example.test',
+            'email_test_addresses_text' => 'qa@example.test',
+            'header' => 'Subject: Latest edits', 'html_body' => '<p>Latest warmup body</p>',
+            'send_type' => 'delayp', 'total_send' => 12, 'fraction_ip' => 3,
+            'sleep_email' => 250, 'sleep_ip' => 900, 'seed_every' => 4, 'bounce_limit' => 6,
+            'route_option' => 'ip', 'ip_type' => 'all', 'server_ids' => [], 'ip_ids' => [],
+            'idempotency_key' => (string) Str::uuid(), 'source_revision_id' => $revision->getKey(),
+            'submission_intent' => 'save', 'send_idempotency_key' => (string) Str::uuid(),
+        ])->assertRedirect(route('clean.console.warmups.index'));
+
+        $campaign->refresh()->load('latestRevision');
+        $this->assertSame(2, $campaign->latestRevision->revision_number);
+        $this->assertSame('<p>Latest warmup body</p>', $campaign->latestRevision->payload['html_body']);
+        $this->assertSame('delayp', $campaign->latestRevision->payload['send_type']);
+        $this->assertSame(250, $campaign->latestRevision->payload['sleep_email']);
+        $this->assertSame(900, $campaign->latestRevision->payload['sleep_ip']);
+        $this->assertSame(0, $campaign->sendRuns()->count());
+    }
+
+    public function test_create_and_send_warmup_saves_latest_form_values_before_queueing(): void
+    {
+        Queue::fake();
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $seedList = WorkspaceSeedList::query()->create([
+            'workspace_id' => $workspace->getKey(), 'user_id' => $owner->getKey(), 'name' => 'Send form seeds', 'is_active' => true,
+        ]);
+        $seedList->emails()->createMany([
+            ['email' => 'first-send@example.test'],
+            ['email' => 'second-send@example.test'],
+            ['email' => 'third-send@example.test'],
+        ]);
+        $serverId = (string) Str::uuid();
+        $routeId = '10';
+        $catalog = \Mockery::mock(AlphaLinkCampaignSendCatalog::class);
+        $catalog->shouldReceive('options')->once()->andReturn([
+            'sponsors' => [], 'offers' => [], 'isps' => [], 'segments' => [], 'negatives' => [],
+            'servers' => [['id' => $serverId]], 'ips' => [['id' => $routeId]], 'campaign_domains' => [],
+        ]);
+        $catalog->shouldReceive('validateRevisionRouting')->once()->andReturn([
+            'server_ids' => [$serverId], 'ip_ids' => [$routeId],
+        ]);
+        $this->app->instance(AlphaLinkCampaignSendCatalog::class, $catalog);
+
+        $this->actingAs($owner)->post(route('console.warmups.store', $workspace->getKey()), [
+            'name' => 'Create and Send Warmup', 'return_path' => 'reply@example.test',
+            'email_test_addresses_text' => 'qa@example.test',
+            'header' => 'Content-Type: text/html\nFrom: sender@example.test\nSubject: Current version',
+            'html_body' => '<p>Current unsaved form version</p>',
+            'seed_list_ids' => [$seedList->getKey()], 'send_type' => 'delayps',
+            'total_send' => 2, 'fraction_ip' => 2, 'sleep_email' => 1200, 'sleep_ip' => 2400,
+            'seed_every' => 8, 'bounce_limit' => 9, 'route_option' => 'ip', 'ip_type' => 'ipv4',
+            'server_ids' => [$serverId], 'ip_ids' => [$routeId],
+            'idempotency_key' => (string) Str::uuid(), 'send_idempotency_key' => (string) Str::uuid(),
+            'submission_intent' => 'create_send',
+        ])->assertRedirect(route('clean.console.warmups.index'))->assertSessionHasNoErrors();
+
+        $campaign = Campaign::query()->where('workspace_id', $workspace->getKey())->where('kind', 'warmup')->firstOrFail();
+        $campaign->load('latestRevision');
+        $this->assertSame('<p>Current unsaved form version</p>', $campaign->latestRevision->payload['html_body']);
+        $this->assertSame('delayps', $campaign->latestRevision->payload['send_type']);
+        $this->assertSame(1200, $campaign->latestRevision->payload['sleep_email']);
+        $this->assertSame(2400, $campaign->latestRevision->payload['sleep_ip']);
+        $run = WarmupSendRun::query()->where('campaign_id', $campaign->getKey())->firstOrFail();
+        $this->assertSame($campaign->latestRevision->getKey(), $run->revision_id);
+        $this->assertSame('delayps', $run->send_type);
+        $this->assertSame(1200, $run->execution_options['sleep_email_ms']);
+        $this->assertSame(2400, $run->execution_options['sleep_ip_ms']);
+        Queue::assertPushedOn('campaign-sends', ProcessWarmupSendRun::class, fn (ProcessWarmupSendRun $job): bool => $job->sendRunId === (string) $run->getKey());
     }
 
     public function test_drop_send_queues_snapshot_preparation_instead_of_claiming_it_started(): void
@@ -350,6 +455,7 @@ class WorkspaceMailerOperationsTest extends TestCase
             ['email' => 'first@example.test'],
             ['email' => 'first@example.test'],
             ['email' => 'second@example.test'],
+            ['email' => 'third@example.test'],
         ]);
         $unselectedList->emails()->create(['email' => 'unselected@example.test']);
         $serverId = (string) Str::uuid();
@@ -369,7 +475,8 @@ class WorkspaceMailerOperationsTest extends TestCase
         CampaignRevision::query()->create([
             'campaign_id' => $campaign->getKey(), 'revision_number' => 1,
             'payload' => [
-                'send_type' => 'delayp', 'seed_list_ids' => [(int) $selectedList->getKey()], 'start_from' => 1, 'total_send' => 1,
+                'send_type' => 'delayp', 'seed_list_ids' => [(int) $selectedList->getKey()], 'start_from' => 1, 'total_send' => 2,
+                'fraction_ip' => 1, 'sleep_email' => 11, 'sleep_ip' => 23, 'seed_every' => 7, 'bounce_limit' => 5, 'test_after' => 7,
                 'header' => "Content-Type: text/html\nFrom: sender@[domain]\nSubject: Warmup fixture",
                 'html_body' => '<p>Warmup fixture at https://[domain]/offer</p>',
                 'return_path' => 'bounce@[domain]',
@@ -388,7 +495,15 @@ class WorkspaceMailerOperationsTest extends TestCase
         $recipient = $run->recipients()->firstOrFail();
         $this->assertSame('planned', $run->state);
         $this->assertSame('delayp', $run->send_type);
-        $this->assertSame(1, $run->recipient_count);
+        $this->assertSame(2, $run->recipient_count);
+        $this->assertSame('delayp', $run->execution_options['send_type']);
+        $this->assertSame(2, $run->execution_options['total_send']);
+        $this->assertSame(1, $run->execution_options['fraction_ip']);
+        $this->assertSame(11, $run->execution_options['sleep_email_ms']);
+        $this->assertSame(23, $run->execution_options['sleep_ip_ms']);
+        $this->assertSame(7, $run->execution_options['seed_every']);
+        $this->assertSame(7, $run->execution_options['test_after']);
+        $this->assertSame(5, $run->execution_options['bounce_limit']);
         $this->assertSame('domain', $campaign->latestRevision->payload['send_setup']['route_option']);
         $this->assertNotSame('second@example.test', $recipient->recipient_ciphertext);
         $this->assertSame('second@example.test', Crypt::decryptString($recipient->recipient_ciphertext));
@@ -453,13 +568,17 @@ class WorkspaceMailerOperationsTest extends TestCase
         $transportFactory->shouldReceive('forServer')->once()
             ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
             ->andReturn($transport);
-        (new ProcessWarmupSendRun((string) $run->getKey()))->handle($workerMessageBuilder, $transportFactory);
+        $workerStartedAt = now()->getTimestampMs();
+        (new ProcessWarmupSendRun((string) $run->getKey()))->handle($workerMessageBuilder, $transportFactory, app(SendRunPacing::class));
 
         $run->refresh();
         $recipient->refresh();
-        $this->assertSame('completed', $run->state);
+        $this->assertSame('running', $run->state);
         $this->assertSame(1, $run->accepted_count);
+        $this->assertGreaterThanOrEqual($workerStartedAt + 34, $run->execution_options['next_batch_at_ms']);
+        $this->assertSame('third@example.test', Crypt::decryptString($run->recipients()->where('position', 2)->firstOrFail()->recipient_ciphertext));
         $this->assertSame('accepted', $recipient->state);
+        Queue::assertPushed(ProcessWarmupSendRun::class, 2);
     }
 
     public function test_drop_draft_register_lists_all_owned_drafts_and_supports_search(): void

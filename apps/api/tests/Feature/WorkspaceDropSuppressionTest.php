@@ -49,6 +49,21 @@ class WorkspaceDropSuppressionTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_campaign_edits_do_not_consume_the_suppression_start_rate_limit(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $missingCampaignId = (string) Str::uuid();
+
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $this->actingAs($owner)->postJson(route('console.campaigns.revisions.store', [$workspace->getKey(), $missingCampaignId]), [])
+                ->assertNotFound();
+        }
+
+        $this->actingAs($owner)->postJson(route('console.drops.suppression.start', $workspace->getKey()), [])
+            ->assertUnprocessable();
+    }
+
     public function test_page_and_catalog_reproduce_sponsor_offer_isp_list_filters_and_active_history_total(): void
     {
         $owner = User::factory()->create();

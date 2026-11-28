@@ -353,7 +353,7 @@
                                         </div>
                                         <div class="small text-muted" data-send-summary>{{ $sendProcessed }} / {{ $sendRun->recipient_count }} · {{ $sendRun->accepted_count }} accepted · {{ $sendRun->rejected_count }} rejected · {{ $sendRun->suppressed_count }} suppressed · {{ $sendRun->uncertain_count }} uncertain</div>
                                         @if ($canManageVisibleCampaigns && in_array($sendRun->state, ['planned', 'running'], true))
-                                            <div class="small text-muted" data-send-next data-sleep-email="{{ (int) ($register['sleep_email'] ?? 0) }}" data-next-batch-at="{{ $sendRun->execution_options['next_batch_at'] ?? '' }}">{{ $sendRun->state === 'planned' ? 'Waiting for send worker…' : ((int) ($register['sleep_email'] ?? 0) > 0 ? 'Pacing: '.(int) $register['sleep_email'].' seconds between recipients.' : 'Processing next batch…') }}</div>
+                                            <div class="small text-muted" data-send-next data-sleep-email="{{ (int) ($register['sleep_email'] ?? 0) }}" data-next-batch-at="{{ $sendRun->execution_options['next_batch_at'] ?? '' }}">{{ $sendRun->state === 'planned' ? 'Waiting for send worker…' : ((int) ($register['sleep_email'] ?? 0) > 0 ? 'Pacing: '.(int) $register['sleep_email'].' ms between recipients.' : 'Processing next batch…') }}</div>
                                         @endif
                                         @if ($canManageVisibleCampaigns && $sendRun->last_smtp_error)
                                             <div class="small text-danger">Latest SMTP rejection: {{ $sendRun->last_smtp_error }}</div>
@@ -1789,10 +1789,10 @@
                             if (result.state === 'planned') {
                                 next.textContent = 'Waiting for send worker…';
                             } else if (result.state === 'running' && dueAt && !Number.isNaN(dueAt.getTime()) && dueAt.getTime() > Date.now()) {
-                                const remaining = Math.ceil((dueAt.getTime() - Date.now()) / 1000);
-                                next.textContent = `Next recipient in about ${remaining} seconds (${dueAt.toLocaleTimeString()}).`;
+                                const remaining = Math.max(0, (dueAt.getTime() - Date.now()) / 1000);
+                                next.textContent = `Next recipient in about ${remaining.toFixed(1)} seconds.`;
                             } else if (result.state === 'running' && Number(next.dataset.sleepEmail) > 0) {
-                                next.textContent = `Pacing: ${next.dataset.sleepEmail} seconds between recipients.`;
+                                next.textContent = `Pacing: ${next.dataset.sleepEmail} ms between recipients.`;
                             } else {
                                 next.textContent = result.state === 'running' ? 'Processing next batch…' : '';
                             }

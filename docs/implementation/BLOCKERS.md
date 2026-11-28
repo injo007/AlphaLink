@@ -2,6 +2,12 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-28 Campaign/Warmup send-path reliability — E-CAMP-177
+
+The reported Campaign refresh/save behavior, cross-route 429 collision, and 600 ms unit conversion are fixed locally and covered by focused synthetic tests. The refresh/save UI still needs authenticated AlphaLink verification; the app was not logged into, per the user's standing instruction. Deployment is blocked because the active checkout at `/media/akmed/4CF25768F25754F41/Alphalink` has no repository-root `.env`. The earlier named path is a separate checkout with a different commit, so its credentials cannot be used for this task.
+
+The broader Send Type task remains open: DMS Campaign/Warmup/Drop mode-specific algorithms and the effects of Duplicate Data, Test After, Bounce Limit, and Fraction IP are delegated to an opaque native sender. AlphaLink's worker still applies a shared strategy to accepted mode labels. Do not claim full Send Type behavior or parity without an authoritative sender contract/source or user-provided definitions. No DMS runtime or send was executed.
+
 ## 2026-11-28 Mailer 404 and Owner-only user deletion — E-IAM-22
 
 The user's screenshot shows `/dashboard/main` returning 404. The production AuthController source already redirects Mailers to Campaigns or PMTA My IPs, but the deployed Global User Management controller at `2bfa25f` created accounts without workspace membership. The AlphaLink `ResolveCurrentWorkspace` middleware returns 404 when a regular account has no active workspace. E-IAM-21 fixes future creations by validating an active, creator-accessible workspace and attaching the new user before credentials are returned; this commit is still local, so production is not fixed yet. Existing unassigned users require Workspace Access assignment. The account's production row was not inspected.
@@ -835,3 +841,9 @@ Synthetic PHP 8.5 coverage checks rendered URLs, List-Unsubscribe headers, signe
 - E-SET-01 and the sidebar typography correction E-SET-02 are active in release `4b13b7f9916a7f9fd7bdbd08e7891fa4aebb2f42` with verified backup `/var/backups/alphalink/deploy-4b13b7f9916a7f9fd7bdbd08e7891fa4aebb2f42-20261126T184212Z.dump`, required services, and server-local HTTPS `/up` (200). Navigation labels use IBM Plex Sans Condensed at 13px, weight 400; deployed CSS tokens and the served 400-weight font asset are verified. The external browser returned nginx 403 at sign-in, leaving live computed-style review open; no test Telegram notification was sent through a real bot.
 - A broader unfiltered domain feature run reports failures in legacy history-column and role-expectation assertions. The focused tests for the requested Domains page and bulk status feature pass; do not report the entire domain feature class as clean.
 - These requested AlphaLink changes are not DMS parity evidence. Keep DMS-DOM-001, DMS-MISC-001, and DMS-TRACK-001/003 TESTING.
+
+## 2026-11-27 Send Type execution semantics — E-CAMP-176
+
+Read/copy-only DMS inspection established the Campaign/Warmup and Drop mode lists and showed that controllers hand mode-specific configuration to `/var/app/storage/app/engine/send`. The native ELF could not be decoded sufficiently with available static tooling and was not executed. AlphaLink currently accepts those values but uses one worker strategy for all of them. Duplicate Data, Test After/seed_every, Bounce Limit, and exact Fraction IP routing behavior are likewise unresolved; AlphaLink preserves saved values in run snapshots but does not apply the delivery effects.
+
+Do not claim Send Type is complete or deploy a “fully fixed” result until an authoritative sender contract/source or user-defined semantics are available for the opaque fields. The user prohibited app login; no real AlphaLink send is an acceptance substitute. The DMS was read/copied only; no route, record, sender, job, or operational state was changed.

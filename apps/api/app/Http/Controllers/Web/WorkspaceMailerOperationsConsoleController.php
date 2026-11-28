@@ -17,6 +17,7 @@ use App\Models\WorkspaceCampaignTestAddress;
 use App\Models\WorkspaceSeedList;
 use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
+use App\Services\Campaigns\CampaignSendTypeCatalog;
 use App\Services\Campaigns\PrepareWarmupSendRun;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -32,9 +33,9 @@ class WorkspaceMailerOperationsConsoleController extends Controller
 {
     private const ALLOWED_ROLES = ['owner', 'admin', 'operator', 'viewer'];
 
-    private const WARMUP_SEND_TYPES = ['delay', 'delayp', 'delayps', 'hs', 'hsp', 'hsps', 'pickup', 'pickups'];
+    private const WARMUP_SEND_TYPES = CampaignSendTypeCatalog::CAMPAIGN_AND_WARMUP;
 
-    private const DROP_SEND_TYPES = ['delay', 'delayp', 'hs', 'hsp', 'pickup'];
+    private const DROP_SEND_TYPES = CampaignSendTypeCatalog::DROP;
 
     public function drops(Request $request, string $workspace): View
     {
@@ -289,12 +290,12 @@ class WorkspaceMailerOperationsConsoleController extends Controller
         return $this->draftForm($workspace, $request->user(), 'warmup', null, $request, $catalog);
     }
 
-    public function storeWarmup(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): RedirectResponse
+    public function storeWarmup(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog, PrepareWarmupSendRun $sendRun): RedirectResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $content = $this->validatedWarmupContent($request, $workspace, $catalog);
 
-        return $this->storeDraft($request, $workspace, 'warmup', $content);
+        return $this->saveWarmupSubmission($request, $workspace, null, $content, $sendRun);
     }
 
     public function editWarmup(Request $request, string $workspace, string $campaign, AlphaLinkCampaignSendCatalog $catalog): View
@@ -305,13 +306,13 @@ class WorkspaceMailerOperationsConsoleController extends Controller
         return $this->draftForm($workspace, $request->user(), 'warmup', $draft, $request, $catalog);
     }
 
-    public function updateWarmup(Request $request, string $workspace, string $campaign, AlphaLinkCampaignSendCatalog $catalog): RedirectResponse
+    public function updateWarmup(Request $request, string $workspace, string $campaign, AlphaLinkCampaignSendCatalog $catalog, PrepareWarmupSendRun $sendRun): RedirectResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $draft = $this->draftFor($request->user(), $workspace, $campaign, 'warmup');
         $content = $this->validatedWarmupContent($request, $workspace, $catalog);
 
-        return $this->updateDraft($request, $workspace, $draft, $content);
+        return $this->saveWarmupSubmission($request, $workspace, $draft, $content, $sendRun);
     }
 
     public function sendWarmup(Request $request, string $workspace, string $campaign, PrepareWarmupSendRun $sendRun): RedirectResponse
@@ -505,7 +506,7 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             'send_setup.sleep_email' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'send_setup.sleep_ip' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'send_setup.test_after' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
-            'send_setup.batch' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
+            'send_setup.batch' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'send_setup.delay' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'send_setup.bounce_limit' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'list_ids' => ['nullable', 'array', 'max:100'],
@@ -921,6 +922,48 @@ class WorkspaceMailerOperationsConsoleController extends Controller
 
         return redirect()->route($draft->kind === 'drop' ? 'console.drops.drafts.edit' : 'console.warmups.edit', [$workspace->getKey(), $draft->getKey()])
             ->with('status', $status);
+    }
+
+    /** @param array<string, mixed> $content */
+    private function saveWarmupSubmission(Request $request, Workspace $workspace, ?Campaign $draft, array $content, PrepareWarmupSendRun $sendRun): RedirectResponse
+    {
+        $intentData = $request->validate([
+            'submission_intent' => ['nullable', 'in:save,create_send'],
+            'send_idempotency_key' => ['required_if:submission_intent,create_send', 'uuid'],
+        ]);
+        $intent = (string) ($intentData['submission_intent'] ?? 'save');
+        $status = 'Warmup saved. Your latest settings are stored; no message was sent.';
+
+        DB::transaction(function () use ($request, $workspace, $draft, $content, $sendRun, $intent, $intentData, &$status): void {
+            if ($draft) {
+                $this->updateDraft($request, $workspace, $draft, $content);
+                $savedDraft = $workspace->campaigns()
+                    ->with('latestRevision')
+                    ->where('created_by', $request->user()->getKey())
+                    ->where('kind', 'warmup')
+                    ->whereKey($draft->getKey())
+                    ->firstOrFail();
+            } else {
+                $this->storeDraft($request, $workspace, 'warmup', $content);
+                $savedDraft = $workspace->campaigns()
+                    ->with('latestRevision')
+                    ->where('created_by', $request->user()->getKey())
+                    ->where('kind', 'warmup')
+                    ->where('idempotency_key', $request->input('idempotency_key'))
+                    ->firstOrFail();
+            }
+
+            if ($intent !== 'create_send') {
+                return;
+            }
+
+            $run = $sendRun->create($workspace, $savedDraft, $request->user(), (string) $intentData['send_idempotency_key']);
+            $status = in_array($run->state, ['planned', 'running'], true)
+                ? 'Warmup saved and its latest revision queued for sending. Progress is shown in My Warmups.'
+                : 'Warmup saved. Review its latest send state in My Warmups.';
+        });
+
+        return redirect()->route('console.warmups.index', $workspace->getKey())->with('status', $status);
     }
 
     private function draftFor(User $user, Workspace $workspace, string $campaignId, string $kind): Campaign

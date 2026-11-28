@@ -79,8 +79,7 @@
             </article>
         </section>
 
-        <div class="campaign-workspace-grid">
-            <main class="campaign-register-main" aria-label="Warmup operations">
+        <main class="campaign-register-main" aria-label="Warmup operations">
                 <div class="d-flex flex-wrap align-items-center justify-content-between mb-2 campaign-register-toolbar warmup-register-toolbar">
                     <div class="d-flex align-items-center campaign-register-actions">
                         <form method="GET" action="{{ route('console.warmups.index', $workspace->id) }}" class="form-inline mr-2" aria-label="Warmup rows per page">
@@ -155,7 +154,7 @@
                             @php($recipientCount = (int) ($sendRun->recipient_count ?? 0))
                             @php($progressPercent = $recipientCount > 0 ? min(100, (int) floor($processed * 100 / $recipientCount)) : 0)
                             @php($runState = $sendRun ? $sendRun->state : 'draft')
-                            <tr>
+                            <tr data-warmup-row data-warmup-id="{{ $draft->id }}">
                                 <th scope="row" data-label="ID">
                                     @if ($canOperateWarmups)
                                         <a class="campaign-row-number" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Edit warmup {{ $draft->name }}">#{{ substr((string) $draft->id, 0, 8) }}</a>
@@ -204,6 +203,7 @@
                                 <td data-label="Type"><span class="badge badge-light border">{{ strtoupper((string) ($config['send_type'] ?? 'DELAY')) }}</span></td>
                                 <td data-label="Actions" class="text-nowrap warmup-register-actions">
                                     <div class="campaign-register-row-actions warmup-register-row-actions">
+                                        <button class="campaign-register-icon-action" type="button" data-warmup-analytics-trigger="{{ $draft->id }}" aria-controls="warmup-analytics-panel" title="View Warmup analytics" aria-label="View analytics for {{ $draft->name }}"><i class="fas fa-chart-line" aria-hidden="true"></i></button>
                                         <a class="campaign-register-icon-action" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Edit Warmup" aria-label="Edit Warmup"><i class="fas fa-edit" aria-hidden="true"></i></a>
                                         <a class="campaign-register-icon-action warmup-action-test" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Open Warmup composer to test" aria-label="Test Warmup"><i class="far fa-paper-plane" aria-hidden="true"></i></a>
                                         @if ($sendRun && in_array($sendRun->state, ['planned', 'running'], true))
@@ -247,40 +247,43 @@
                     <small class="warmup-register-scroll-hint"><i class="fas fa-arrows-alt-h mr-1" aria-hidden="true"></i> Scroll horizontally to view remaining columns.</small>
                     {{ $drafts->links() }}
                 </div>
-            </main>
+        </main>
 
-            <aside class="campaign-intelligence" aria-label="Warmup intelligence">
+            <aside id="warmup-analytics-panel" class="campaign-intelligence warmup-analytics-panel" aria-label="Warmup analytics" hidden>
                 <section class="campaign-intelligence-card campaign-analytics-card">
                     <header class="campaign-intelligence-heading">
                         <span class="campaign-intelligence-heading-icon" aria-hidden="true"><i class="fas fa-chart-bar"></i></span>
-                        <div><h2>Warmup Analytics</h2><p>Reputation &amp; delivery pacing</p></div>
+                        <div><h2>Warmup Analytics</h2><p>Saved configuration and send-run outcomes</p></div>
                         <label class="sr-only" for="warmup-analytics-select">Select warmup for analytics</label>
                         <select id="warmup-analytics-select" class="campaign-analytics-select" aria-label="Select warmup for analytics">
-                            <option value="all" data-name="All Warmups" data-status="ACTIVE" data-seeds="{{ $drafts->sum('warmup_seed_count') }}" data-servers="{{ $drafts->reduce(fn($c, $d) => $c + $d->warmup_servers->count(), 0) }}" data-type="PARALLEL" data-total="{{ $drafts->total() }}" data-fraction="1/1" data-sleep-email="1s">All Warmups</option>
+                            <option value="">Select a Warmup</option>
                             @foreach ($drafts as $wDraft)
                                 @php($wConfig = $wDraft->warmup_config ?? [])
-                                <option value="{{ $wDraft->id }}" data-name="{{ $wDraft->name }}" data-status="{{ strtoupper(optional($wDraft->warmup_send_run)->state ?? 'draft') }}" data-seeds="{{ $wDraft->warmup_seed_count ?? 0 }}" data-servers="{{ $wDraft->warmup_servers->count() }}" data-type="{{ strtoupper($wConfig['send_type'] ?? 'DELAY') }}" data-total="{{ $wConfig['total_send'] ?? '—' }}" data-fraction="{{ $wConfig['fraction_ip'] ?? '—' }}" data-sleep-email="{{ $wConfig['sleep_email'] ?? '—' }}">{{ $wDraft->name }}</option>
+                                @php($wRun = $wDraft->warmup_send_run)
+                                @php($wRecipientCount = (int) ($wRun->recipient_count ?? 0))
+                                @php($wProcessed = $wRun ? (int) $wRun->accepted_count + (int) $wRun->rejected_count + (int) $wRun->uncertain_count : 0)
+                                <option value="{{ $wDraft->id }}" data-name="{{ $wDraft->name }}" data-status="{{ strtoupper($wRun->state ?? 'draft') }}" data-seeds="{{ $wDraft->warmup_seed_count ?? 0 }}" data-servers="{{ $wDraft->warmup_servers->count() }}" data-type="{{ strtoupper($wConfig['send_type'] ?? 'DELAY') }}" data-total="{{ $wConfig['total_send'] ?? '—' }}" data-fraction="{{ $wConfig['fraction_ip'] ?? '—' }}" data-sleep-email="{{ $wConfig['sleep_email'] ?? '—' }}" data-sleep-ip="{{ $wConfig['sleep_ip'] ?? '—' }}" data-bounce-limit="{{ $wConfig['bounce_limit'] ?? '—' }}" data-accepted="{{ (int) ($wRun->accepted_count ?? 0) }}" data-rejected="{{ (int) ($wRun->rejected_count ?? 0) }}" data-uncertain="{{ (int) ($wRun->uncertain_count ?? 0) }}" data-recipient-count="{{ $wRecipientCount }}" data-processed="{{ $wProcessed }}">{{ $wDraft->name }}</option>
                             @endforeach
                         </select>
                     </header>
-                    <div class="campaign-analytics-period"><i class="far fa-calendar-alt" aria-hidden="true"></i><span>{{ $from }} – {{ $to }}</span></div>
                     <div class="campaign-analytics-metrics" aria-live="polite">
-                        <article class="campaign-analytics-metric metric-sent"><span class="metric-icon" aria-hidden="true"><i class="fas fa-seedling"></i></span><span><small>Seeds</small><strong id="warmup-metric-seeds">{{ number_format($drafts->sum('warmup_seed_count')) }}</strong></span></article>
-                        <article class="campaign-analytics-metric metric-deliveries"><span class="metric-icon" aria-hidden="true"><i class="fas fa-paper-plane"></i></span><span><small>Active</small><strong id="warmup-metric-active">{{ number_format($activeSends) }}</strong></span></article>
-                        <article class="campaign-analytics-metric metric-opens"><span class="metric-icon" aria-hidden="true"><i class="fas fa-check-circle"></i></span><span><small>Completed</small><strong id="warmup-metric-completed">{{ number_format($drafts->filter(fn($d) => optional($d->warmup_send_run)->state === 'completed')->count()) }}</strong></span></article>
-                        <article class="campaign-analytics-metric metric-clicks"><span class="metric-icon" aria-hidden="true"><i class="fas fa-server"></i></span><span><small>Servers</small><strong id="warmup-metric-servers">{{ number_format($drafts->reduce(fn($c, $d) => $c + $d->warmup_servers->count(), 0)) }}</strong></span></article>
-                        <article class="campaign-analytics-metric metric-leads"><span class="metric-icon" aria-hidden="true"><i class="fas fa-file-alt"></i></span><span><small>Drafts</small><strong id="warmup-metric-drafts">{{ number_format(max(0, $drafts->total() - $activeSends)) }}</strong></span></article>
-                        <article class="campaign-analytics-metric metric-unsubscribes"><span class="metric-icon" aria-hidden="true"><i class="fas fa-tachometer-alt"></i></span><span><small>Total</small><strong id="warmup-metric-total">{{ number_format($drafts->total()) }}</strong></span></article>
+                        <article class="campaign-analytics-metric metric-sent"><span class="metric-icon" aria-hidden="true"><i class="fas fa-seedling"></i></span><span><small>Seed accounts</small><strong id="warmup-metric-seeds">0</strong></span></article>
+                        <article class="campaign-analytics-metric metric-deliveries"><span class="metric-icon" aria-hidden="true"><i class="fas fa-check-circle"></i></span><span><small>Accepted</small><strong id="warmup-metric-accepted">0</strong></span></article>
+                        <article class="campaign-analytics-metric metric-opens"><span class="metric-icon" aria-hidden="true"><i class="fas fa-times-circle"></i></span><span><small>Rejected</small><strong id="warmup-metric-rejected">0</strong></span></article>
+                        <article class="campaign-analytics-metric metric-clicks"><span class="metric-icon" aria-hidden="true"><i class="fas fa-question-circle"></i></span><span><small>Uncertain</small><strong id="warmup-metric-uncertain">0</strong></span></article>
+                        <article class="campaign-analytics-metric metric-leads"><span class="metric-icon" aria-hidden="true"><i class="fas fa-server"></i></span><span><small>Servers</small><strong id="warmup-metric-servers">0</strong></span></article>
+                        <article class="campaign-analytics-metric metric-unsubscribes"><span class="metric-icon" aria-hidden="true"><i class="fas fa-paper-plane"></i></span><span><small>Total send</small><strong id="warmup-metric-total">—</strong></span></article>
                     </div>
                     <div class="campaign-chart-heading">
-                        <h3>Delivery Pacing</h3>
-                        <div class="campaign-chart-tabs" role="tablist">
-                            <button type="button" role="tab" aria-selected="true" class="active">Trend</button>
-                            <button type="button" role="tab" aria-selected="false">Pacing</button>
-                        </div>
+                        <h3>Send Run Progress</h3>
                     </div>
-                    <div class="campaign-engagement-chart-wrap px-3 pb-2">
-                        <canvas id="warmup-analytics-chart" class="campaign-engagement-chart" height="180"></canvas>
+                    <div class="warmup-analytics-progress-wrap" aria-live="polite">
+                        <p id="warmup-analytics-progress-message" class="text-muted mb-2">Choose a Warmup to view its send progress.</p>
+                        <div id="warmup-analytics-progress" class="warmup-analytics-progress" role="progressbar" aria-label="Warmup send outcomes" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
+                            <span class="warmup-analytics-progress-accepted" data-progress-segment="accepted"></span>
+                            <span class="warmup-analytics-progress-rejected" data-progress-segment="rejected"></span>
+                            <span class="warmup-analytics-progress-uncertain" data-progress-segment="uncertain"></span>
+                        </div>
                     </div>
                 </section>
                 <section class="campaign-intelligence-card campaign-information-card">
@@ -289,18 +292,19 @@
                         <div><h2>Warmup Information</h2><p id="warmup-info-subtitle">Selected Warmup Details</p></div>
                     </header>
                     <dl class="campaign-information-grid" id="warmup-info-grid">
-                        <div><dt><i class="fas fa-fire mr-1 text-purple"></i> Warmup</dt><dd id="warmup-info-name">All Warmups</dd></div>
-                        <div><dt><i class="fas fa-check-circle mr-1 text-purple"></i> Status</dt><dd id="warmup-info-status">ACTIVE</dd></div>
-                        <div><dt><i class="fas fa-seedling mr-1 text-purple"></i> Seeds</dt><dd id="warmup-info-seeds">{{ number_format($drafts->sum('warmup_seed_count')) }}</dd></div>
-                        <div><dt><i class="fas fa-server mr-1 text-purple"></i> Servers</dt><dd id="warmup-info-servers">{{ $drafts->reduce(fn($c, $d) => $c + $d->warmup_servers->count(), 0) }}</dd></div>
-                        <div><dt><i class="fas fa-paper-plane mr-1 text-purple"></i> Send Type</dt><dd id="warmup-info-type">DELAY / PARALLEL</dd></div>
-                        <div><dt><i class="fas fa-envelope mr-1 text-purple"></i> Total Send</dt><dd id="warmup-info-total">{{ $drafts->total() }}</dd></div>
-                        <div><dt><i class="fas fa-network-wired mr-1 text-purple"></i> Fraction IP</dt><dd id="warmup-info-fraction">1/1</dd></div>
-                        <div><dt><i class="fas fa-clock mr-1 text-purple"></i> Sleep Email</dt><dd id="warmup-info-sleep-email">1s</dd></div>
+                        <div><dt><i class="fas fa-fire mr-1 text-purple"></i> Warmup</dt><dd id="warmup-info-name">—</dd></div>
+                        <div><dt><i class="fas fa-check-circle mr-1 text-purple"></i> Status</dt><dd id="warmup-info-status">—</dd></div>
+                        <div><dt><i class="fas fa-seedling mr-1 text-purple"></i> Seeds</dt><dd id="warmup-info-seeds">—</dd></div>
+                        <div><dt><i class="fas fa-server mr-1 text-purple"></i> Servers</dt><dd id="warmup-info-servers">—</dd></div>
+                        <div><dt><i class="fas fa-paper-plane mr-1 text-purple"></i> Send Type</dt><dd id="warmup-info-type">—</dd></div>
+                        <div><dt><i class="fas fa-envelope mr-1 text-purple"></i> Total Send</dt><dd id="warmup-info-total">—</dd></div>
+                        <div><dt><i class="fas fa-network-wired mr-1 text-purple"></i> Fraction IP</dt><dd id="warmup-info-fraction">—</dd></div>
+                        <div><dt><i class="fas fa-clock mr-1 text-purple"></i> Sleep Email (MS)</dt><dd id="warmup-info-sleep-email">—</dd></div>
+                        <div><dt><i class="fas fa-clock mr-1 text-purple"></i> Sleep IP (MS)</dt><dd id="warmup-info-sleep-ip">—</dd></div>
+                        <div><dt><i class="fas fa-exclamation-triangle mr-1 text-purple"></i> Bounce Limit</dt><dd id="warmup-info-bounce-limit">—</dd></div>
                     </dl>
                 </section>
             </aside>
-        </div>
     </div>
 </section>
 @endsection
@@ -308,6 +312,15 @@
 @push('styles')
     <link rel="stylesheet" href="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.css') }}">
     <style>
+        .warmup-register-page .warmup-register-table tbody tr.is-analytics-selected > * { background: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)); }
+        .warmup-analytics-panel { margin-top: 16px; }
+        .warmup-analytics-panel[hidden], .warmup-analytics-progress[hidden] { display: none !important; }
+        .warmup-analytics-progress-wrap { padding: 8px 13px 16px; }
+        .warmup-analytics-progress { display: flex; width: 100%; height: 15px; overflow: hidden; border-radius: 999px; background: var(--co-surface-muted); }
+        .warmup-analytics-progress span { display: block; height: 100%; transition: width .18s ease; }
+        .warmup-analytics-progress-accepted { background: #16a36a; }
+        .warmup-analytics-progress-rejected { background: #e34f62; }
+        .warmup-analytics-progress-uncertain { background: #e4a527; }
         .warmup-register-page { --warmup-danger: #ce4560; --warmup-success: #14825d; margin: 0 0 18px; overflow: hidden; border: 1px solid var(--co-border); border-radius: 17px; color: var(--co-ink); background: var(--co-surface); box-shadow: var(--co-shadow); }
         .warmup-register-page-header { align-items: center; justify-content: space-between; gap: 18px; min-height: 110px; overflow: hidden; padding: 15px 20px; position: relative; isolation: isolate; border-bottom: 1px solid var(--co-border); background: linear-gradient(105deg, color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)), var(--co-surface) 48%, color-mix(in srgb, var(--co-blue) 6%, var(--co-surface))); }
         .warmup-register-page-header::before { position: absolute; z-index: -1; inset: -65% -5% -55% 28%; border-radius: 50%; background: radial-gradient(ellipse at 52% 50%, color-mix(in srgb, var(--co-purple-bright) 22%, transparent), transparent 57%), radial-gradient(ellipse at 73% 54%, color-mix(in srgb, var(--co-blue) 22%, transparent), transparent 48%); content: ""; }
@@ -452,97 +465,75 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const select = document.getElementById('warmup-analytics-select');
-            const canvas = document.getElementById('warmup-analytics-chart');
-            if (!select || !canvas) return;
+            const panel = document.getElementById('warmup-analytics-panel');
+            const progress = document.getElementById('warmup-analytics-progress');
+            if (!select || !panel || !progress) return;
 
-            function drawChart() {
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return;
-                const w = canvas.width = canvas.parentElement.clientWidth || 300;
-                const h = canvas.height = 180;
-                ctx.clearRect(0, 0, w, h);
+            const setText = (id, value, fallback = '—') => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value || fallback;
+            };
+            const displayCount = value => Number(value || 0).toLocaleString();
 
-                // Grid lines
-                ctx.strokeStyle = 'rgba(139, 92, 246, 0.1)';
-                ctx.lineWidth = 1;
-                for (let y = 30; y < h - 20; y += 35) {
-                    ctx.beginPath();
-                    ctx.moveTo(30, y);
-                    ctx.lineTo(w - 10, y);
-                    ctx.stroke();
-                }
-
-                // Data points
-                const points = [
-                    { x: 35, y: h - 35 },
-                    { x: w * 0.25, y: h - 65 },
-                    { x: w * 0.45, y: h - 95 },
-                    { x: w * 0.70, y: h - 130 },
-                    { x: w - 20, y: h - 155 }
-                ];
-
-                // Gradient fill
-                const grad = ctx.createLinearGradient(0, 0, 0, h);
-                grad.addColorStop(0, 'rgba(139, 92, 246, 0.28)');
-                grad.addColorStop(1, 'rgba(139, 92, 246, 0.01)');
-
-                ctx.beginPath();
-                ctx.moveTo(points[0].x, points[0].y);
-                for (let i = 1; i < points.length; i++) {
-                    const cx = (points[i - 1].x + points[i].x) / 2;
-                    const cy = (points[i - 1].y + points[i].y) / 2;
-                    ctx.quadraticCurveTo(points[i - 1].x, points[i - 1].y, cx, cy);
-                }
-                ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
-                ctx.lineTo(points[points.length - 1].x, h - 20);
-                ctx.lineTo(points[0].x, h - 20);
-                ctx.closePath();
-                ctx.fillStyle = grad;
-                ctx.fill();
-
-                // Stroke line
-                ctx.beginPath();
-                ctx.moveTo(points[0].x, points[0].y);
-                for (let i = 1; i < points.length; i++) {
-                    const cx = (points[i - 1].x + points[i].x) / 2;
-                    const cy = (points[i - 1].y + points[i].y) / 2;
-                    ctx.quadraticCurveTo(points[i - 1].x, points[i - 1].y, cx, cy);
-                }
-                ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
-                ctx.strokeStyle = '#8b5cf6';
-                ctx.lineWidth = 2.5;
-                ctx.stroke();
-
-                // Dots
-                points.forEach(p => {
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fill();
-                    ctx.strokeStyle = '#8b5cf6';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
+            function renderSelection() {
+                const option = select.selectedOptions[0];
+                const isSelected = Boolean(option?.value);
+                panel.hidden = !isSelected;
+                document.querySelectorAll('[data-warmup-row]').forEach(row => {
+                    row.classList.toggle('is-analytics-selected', isSelected && row.dataset.warmupId === option.value);
                 });
+                if (!isSelected) return;
+
+                const data = option.dataset;
+                setText('warmup-info-name', data.name);
+                setText('warmup-info-status', data.status);
+                setText('warmup-info-seeds', displayCount(data.seeds));
+                setText('warmup-info-servers', displayCount(data.servers));
+                setText('warmup-info-type', data.type);
+                setText('warmup-info-total', data.total);
+                setText('warmup-info-fraction', data.fraction);
+                setText('warmup-info-sleep-email', data.sleepEmail);
+                setText('warmup-info-sleep-ip', data.sleepIp);
+                setText('warmup-info-bounce-limit', data.bounceLimit);
+                setText('warmup-info-subtitle', `${data.name} · ${data.status}`);
+                setText('warmup-metric-seeds', displayCount(data.seeds));
+                setText('warmup-metric-accepted', displayCount(data.accepted));
+                setText('warmup-metric-rejected', displayCount(data.rejected));
+                setText('warmup-metric-uncertain', displayCount(data.uncertain));
+                setText('warmup-metric-servers', displayCount(data.servers));
+                setText('warmup-metric-total', data.total);
+
+                const recipientCount = Number(data.recipientCount || 0);
+                const processed = Number(data.processed || 0);
+                const accepted = Number(data.accepted || 0);
+                const rejected = Number(data.rejected || 0);
+                const uncertain = Number(data.uncertain || 0);
+                const message = document.getElementById('warmup-analytics-progress-message');
+                if (recipientCount < 1) {
+                    progress.hidden = true;
+                    if (message) message.textContent = 'No send run has been queued for this Warmup yet.';
+                    return;
+                }
+
+                progress.hidden = false;
+                const percentage = Math.min(100, Math.floor(processed * 100 / recipientCount));
+                progress.setAttribute('aria-valuenow', String(percentage));
+                progress.setAttribute('aria-valuetext', `${displayCount(processed)} of ${displayCount(recipientCount)} recipients processed`);
+                progress.querySelector('[data-progress-segment="accepted"]').style.width = `${Math.min(100, accepted * 100 / recipientCount)}%`;
+                progress.querySelector('[data-progress-segment="rejected"]').style.width = `${Math.min(100, rejected * 100 / recipientCount)}%`;
+                progress.querySelector('[data-progress-segment="uncertain"]').style.width = `${Math.min(100, uncertain * 100 / recipientCount)}%`;
+                if (message) message.textContent = `${displayCount(processed)} of ${displayCount(recipientCount)} recipients processed · ${percentage}%`;
             }
 
-            select.addEventListener('change', () => {
-                const opt = select.selectedOptions[0];
-                if (!opt) return;
-                const d = opt.dataset;
-                document.getElementById('warmup-info-name').textContent = d.name || 'All Warmups';
-                document.getElementById('warmup-info-status').textContent = d.status || 'ACTIVE';
-                document.getElementById('warmup-info-seeds').textContent = d.seeds || '0';
-                document.getElementById('warmup-info-servers').textContent = d.servers || '0';
-                document.getElementById('warmup-info-type').textContent = d.type || 'DELAY';
-                document.getElementById('warmup-info-total').textContent = d.total || '—';
-                document.getElementById('warmup-info-fraction').textContent = d.fraction || '1/1';
-                document.getElementById('warmup-info-sleep-email').textContent = d.sleepEmail || '1s';
-                document.getElementById('warmup-info-subtitle').textContent = opt.value === 'all' ? 'All Warmups' : (d.name || 'Selected Warmup');
-                drawChart();
+            select.addEventListener('change', renderSelection);
+            document.querySelectorAll('[data-warmup-analytics-trigger]').forEach(button => {
+                button.addEventListener('click', () => {
+                    select.value = button.dataset.warmupAnalyticsTrigger;
+                    renderSelection();
+                    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
             });
-
-            drawChart();
-            window.addEventListener('resize', drawChart);
+            renderSelection();
         });
     </script>
 @endpush

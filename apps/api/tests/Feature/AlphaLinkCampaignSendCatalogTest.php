@@ -80,6 +80,50 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_unchanged_marketing_campaign_save_returns_to_my_campaigns_without_duplicate_revision(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $campaign = $workspace->campaigns()->create([
+            'created_by' => $owner->getKey(),
+            'name' => 'Synthetic unchanged campaign',
+            'kind' => 'marketing',
+            'status' => 'draft',
+            'is_active' => true,
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $content = [
+            'return_path' => '[rnd]@[domain]',
+            'email_tests' => [],
+            'header' => 'MIME-version: 1.0',
+            'body' => '<p>Saved fixture</p>',
+            'send_setup' => ['send_type' => 'delay'],
+        ];
+        $hash = hash('sha256', json_encode($content, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+        $revision = $campaign->revisions()->create([
+            'revision_number' => 1,
+            'payload' => $content,
+            'content_sha256' => $hash,
+            'idempotency_key' => 'create:'.hash('sha256', (string) Str::uuid()),
+            'request_fingerprint' => $hash,
+            'created_by' => $owner->getKey(),
+            'created_at' => now(),
+        ]);
+
+        for ($attempt = 0; $attempt < 11; $attempt++) {
+            $this->actingAs($owner)->post(route('console.campaigns.revisions.store', [$workspace->getKey(), $campaign->getKey()]), [
+                'idempotency_key' => (string) Str::uuid(),
+                'expected_revision_id' => (string) $revision->getKey(),
+                'header' => $content['header'],
+                'body' => $content['body'],
+            ])
+                ->assertRedirect(route('console.mailer.campaigns'))
+                ->assertSessionHas('status', 'Campaign saved. No new revision was needed because there were no changes.');
+        }
+
+        $this->assertSame(1, $campaign->revisions()->count());
+    }
+
     public function test_campaign_tag_renderer_resolves_reference_server_tags_and_all_language_families(): void
     {
         $renderer = app(AlphaLinkCampaignTagRenderer::class);
@@ -955,8 +999,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $unchangedPayload['expected_revision_id'] = $campaign->latestRevision->getKey();
         $this->actingAs($owner)->from($editUrl)
             ->post(route('console.campaigns.revisions.store', [$workspace->getKey(), $campaign->getKey()]), $unchangedPayload)
-            ->assertRedirect($editUrl)
-            ->assertSessionHasErrors(['campaign' => 'Nothing Changed.']);
+            ->assertRedirect(route('console.mailer.campaigns'))
+            ->assertSessionHas('status', 'Campaign saved. No new revision was needed because there were no changes.');
         $this->assertSame(1, $campaign->revisions()->count());
         $this->assertSame(1, CampaignRecipientSnapshot::query()->where('campaign_id', $campaign->getKey())->count());
 

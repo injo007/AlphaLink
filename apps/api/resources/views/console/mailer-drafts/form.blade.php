@@ -88,12 +88,16 @@
         @else
             <li><a href="{{ route('console.warmups.create', $workspace->id) }}"><span>CREATE WARMUP</span><i class="fas fa-plus"></i></a></li>
         @endif
-        @if ($draft)
-            <li><a href="#" data-send-action title="Queue this saved {{ $isDrop ? 'Drop' : 'Warmup' }} using the saved recipient selection"><span>{{ $isDrop ? 'SEND DROP' : 'CREATE & SEND WARMUP' }}</span><i class="fas fa-paper-plane"></i></a></li>
+        @if ($isWarmup)
+            <li><a href="#" data-send-action title="Save the current Warmup settings and queue that revision"><span>CREATE &amp; SEND WARMUP</span><i class="fas fa-paper-plane"></i></a></li>
+        @elseif ($draft)
+            <li><a href="#" data-send-action title="Queue this saved Drop using the saved recipient selection"><span>SEND DROP</span><i class="fas fa-paper-plane"></i></a></li>
         @else
-            <li><a href="#" class="text-muted" aria-disabled="true" title="Save this draft before sending"><span>{{ $isDrop ? 'SEND DROP' : 'CREATE & SEND WARMUP' }} — SAVE DRAFT FIRST</span><i class="fas fa-paper-plane"></i></a></li>
+            <li><a href="#" class="text-muted" aria-disabled="true" title="Save this draft before sending"><span>SEND DROP — SAVE DRAFT FIRST</span><i class="fas fa-paper-plane"></i></a></li>
         @endif
-        @if ($draft)
+        @if ($isWarmup)
+            <li><a href="#" data-test-action title="Test the current Warmup form values and Email Test recipients"><span>TEST CURRENT WARMUP</span><i class="fas fa-vial"></i></a></li>
+        @elseif ($draft)
             <li><a href="#" data-test-action title="Test the latest saved message and route using the current Email Test addresses"><span>TEST</span><i class="fas fa-vial"></i></a></li>
         @else
             <li><a href="#" class="text-muted" aria-disabled="true" title="Save this draft before testing"><span>TEST — SAVE DRAFT FIRST</span><i class="fas fa-vial"></i></a></li>
@@ -110,13 +114,21 @@
 </div>
 <div class="quick-nav-overlay"></div>
 <ul id="mailer-draft-context-menu" class="mailer-draft-context-menu" role="menu" aria-label="{{ $isDrop ? 'Drop' : 'Warmup' }} page actions" hidden></ul>
-@if ($draft)
-    <form id="mailer-draft-test-action" method="post" action="{{ route('console.campaigns.auto-test', [$workspace->getKey(), $draft->getKey()]) }}" hidden>
+@if ($isWarmup || $draft)
+    <form id="mailer-draft-test-action" method="post" action="{{ $isWarmup ? route('console.campaigns.manual-test', $workspace->getKey()) : route('console.campaigns.auto-test', [$workspace->getKey(), $draft->getKey()]) }}" hidden>
         @csrf
         <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
-        <input type="hidden" name="send_type" value="{{ $isWarmup ? ($content['send_type'] ?? $setup['send_type'] ?? 'delay') : ($setup['send_type'] ?? $content['send_type'] ?? 'delay') }}">
+        @if ($isWarmup && $draft)
+            <input type="hidden" name="test_campaign_id" value="{{ $draft->getKey() }}">
+            <input type="hidden" name="expected_revision_id" value="{{ $draft->latestRevision?->getKey() }}">
+        @endif
+        @if ($isDrop)
+            <input type="hidden" name="send_type" value="{{ $setup['send_type'] ?? $content['send_type'] ?? 'delay' }}">
+        @endif
         <input type="hidden" name="email_test_addresses_text" value="{{ $emailTestText }}">
     </form>
+@endif
+@if ($draft)
     <form id="mailer-draft-send-action" method="post" action="{{ $sendUrl }}" hidden>
         @csrf
         <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
@@ -146,7 +158,13 @@
         </div>
     </div>
     <div class="block-content block-content-full">
-        <p class="small text-muted mb-3 {{ $isWarmup ? 'warmup-composer-note' : '' }}" role="note">AlphaLink draft · save to keep composer changes. Test uses the current Email Test addresses with the latest saved message and routing revision.</p>
+        <p class="small text-muted mb-3 {{ $isWarmup ? 'warmup-composer-note' : '' }}" role="note">
+            @if ($isWarmup)
+                AlphaLink draft · Save keeps your latest changes and returns to My Warmups. Test uses the open Warmup form without saving first.
+            @else
+                AlphaLink draft · Save to keep composer changes. Test uses the latest saved message and route with the current Email Test addresses.
+            @endif
+        </p>
         @if (session('status'))<div class="alert alert-success" role="status">{{ session('status') }}</div>@endif
         @if ($errors->any())
             <div class="alert alert-danger" role="alert"><strong>Review these fields:</strong><ul class="mb-0 mt-2">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
@@ -166,6 +184,10 @@
                 <input type="hidden" name="source_revision_id" value="{{ $draft->latestRevision?->id }}">
             @endif
             <input type="hidden" name="idempotency_key" value="{{ $idempotencyKey }}">
+            @if ($isWarmup)
+                <input type="hidden" id="warmup-submission-intent" name="submission_intent" value="save">
+                <input type="hidden" id="warmup-send-idempotency-key" name="send_idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+            @endif
             @include('console.mailer-drafts.partials.tags')
             @if ($isDrop)
                 <input type="hidden" id="mailer-draft-name" name="name" value="{{ old('name', $draft?->name ?? 'New Drop') }}">
@@ -275,7 +297,7 @@
                         <div class="form-group"><div id="drop-list-box" class="block block-bordered" style="height:400px"><div class="block-header"><span>Lists: <span id="drop-list-selection-count" class="text-primary">{{ count($selectedSegments) }} List(s) Selected</span></span><span><button type="button" class="btn btn-link btn-sm p-0" id="refresh-drop-lists" title="Refresh lists" aria-label="Refresh lists"><i class="fas fa-sync-alt"></i></button><button type="button" class="btn btn-link btn-sm p-0 ml-1" id="select-drop-lists" title="Select all lists" aria-label="Select all lists"><i class="fas fa-check"></i></button><button type="button" class="btn btn-link btn-sm p-0 ml-1" id="clear-drop-lists" title="Deselect all lists" aria-label="Deselect all lists"><i class="fas fa-times"></i></button></span></div><div class="block-content pt-2" style="height:350px;overflow:auto"><div id="drop-segments" class="custom-control custom-checkbox">@foreach ($sendOptions['segments'] as $segment)<div class="custom-control custom-checkbox mb-1"><input id="drop-segment-{{ \Illuminate\Support\Str::slug($segment['id']) }}" class="custom-control-input drop-segment-option" type="checkbox" name="send_setup[audience_segments][]" value="{{ $segment['id'] }}" data-country="{{ strtoupper($segment['country']) }}" data-recipient-count="{{ $segment['recipient_count'] }}" @checked(in_array((string) $segment['id'], $selectedSegments, true))><label class="custom-control-label" for="drop-segment-{{ \Illuminate\Support\Str::slug($segment['id']) }}">{{ $segment['name'] }} — {{ strtoupper($segment['email_type']) }} — {{ $segment['country'] }} · {{ number_format($segment['recipient_count']) }}</label></div>@endforeach</div></div></div></div>
                         <div class="form-row"><div class="form-group col-sm-12 col-md-8"><label for="drop-send-type">Send Mode:</label><select id="drop-send-type" name="send_setup[send_type]" class="form-control">@foreach ($dropSendTypes as $type => $label)<option value="{{ $type }}" @selected(($setup['send_type'] ?? 'delay') === $type)>{{ $label }}</option>@endforeach</select></div><div class="form-group col-sm-12 col-md-4"><label for="drop-duplicate-data">Duplicate Data:</label><input id="drop-duplicate-data" name="send_setup[duplicate_data]" type="number" min="1" max="1000" class="form-control" value="{{ old('send_setup.duplicate_data', $setup['duplicate_data'] ?? 1) }}"></div></div>
                         <div class="form-row">
-                            @foreach ([['start_from', 'Start', 0], ['total_send', 'Count', 0], ['test_after', 'Test After', 1000], ['batch', 'Batch', 1000], ['delay', 'Delay (MS)', 1000], ['bounce_limit', 'Bounce Limit', 1000]] as [$field, $label, $default])<div class="form-group col-sm-12 col-md-4"><label for="drop-{{ $field }}">{{ $label }}:</label><input id="drop-{{ $field }}" name="send_setup[{{ $field }}]" type="number" min="0" max="2147483647" class="form-control" value="{{ old('send_setup.'.$field, $setup[$field] ?? $default) }}"></div>@endforeach
+                            @foreach ([['start_from', 'Start', 0], ['total_send', 'Count', 0], ['test_after', 'Test After', 1000], ['batch', 'Batch', 1000], ['delay', 'Delay (MS)', 1000], ['bounce_limit', 'Bounce Limit', 1000]] as [$field, $label, $default])<div class="form-group col-sm-12 col-md-4"><label for="drop-{{ $field }}">{{ $label }}:</label><input id="drop-{{ $field }}" name="send_setup[{{ $field }}]" type="number" min="{{ $field === 'batch' ? 1 : 0 }}" max="{{ $field === 'batch' ? 1000 : 2147483647 }}" class="form-control" value="{{ old('send_setup.'.$field, $setup[$field] ?? $default) }}"></div>@endforeach
                         </div>
                     </div>
                 </div>
@@ -366,7 +388,7 @@
                                 @else
                                     <div class="form-group col-sm-12 col-md-6">
                                         <label class="command-form-label font-weight-bold" for="warmup-total_send">Total Send Count:</label>
-                                        <input id="warmup-total_send" name="total_send" type="number" min="0" max="2147483647" class="form-control" value="{{ old('total_send', $content['total_send'] ?? 1) }}">
+                                        <input id="warmup-total_send" name="total_send" type="number" min="1" max="2147483647" class="form-control" value="{{ old('total_send', $content['total_send'] ?? 1) }}">
                                     </div>
                                 @endif
                             </div>
@@ -374,7 +396,7 @@
                                 @if ($draft)
                                     <div class="form-group col-sm-6 col-md-6">
                                         <label class="command-form-label font-weight-bold" for="warmup-total_send">Total Send:</label>
-                                        <input id="warmup-total_send" name="total_send" type="number" min="0" max="2147483647" class="form-control" value="{{ old('total_send', $content['total_send'] ?? 1) }}">
+                                    <input id="warmup-total_send" name="total_send" type="number" min="1" max="2147483647" class="form-control" value="{{ old('total_send', $content['total_send'] ?? 1) }}">
                                     </div>
                                 @endif
                                 <div class="form-group col-sm-6 {{ $draft ? 'col-md-6' : 'col-md-6' }}">
@@ -409,7 +431,12 @@
             <div class="d-flex flex-wrap align-items-center mt-2 {{ $isWarmup ? 'warmup-composer-actions' : '' }}" style="gap:.75rem">
                 <button class="btn btn-primary {{ $isWarmup ? 'warmup-composer-save' : '' }}" id="save-mailer-draft" type="submit"><i class="fas fa-save mr-1"></i>{{ $draft ? 'SAVE NEW REVISION' : ($isDrop ? 'SAVE DROP DRAFT' : 'CREATE WARMUP') }}</button>
                 <a class="btn {{ $isWarmup ? 'warmup-composer-cancel' : 'btn-alt-secondary' }}" href="{{ $indexUrl }}">CANCEL</a>
-                <span class="text-muted small">Save draft revision</span>
+                @if ($isWarmup)
+                    <button class="btn btn-alt-primary warmup-composer-send" type="button" data-send-action><i class="fas fa-paper-plane mr-1"></i>CREATE &amp; SEND WARMUP</button>
+                    <span class="text-muted small">Save returns to My Warmups. Create &amp; Send saves this revision first.</span>
+                @else
+                    <span class="text-muted small">Save draft revision</span>
+                @endif
             </div>
         </form>
     </div>
@@ -446,9 +473,12 @@
                 <small id="warmup-readiness-desc">All required configuration valid</small>
             </section>
             <section class="campaign-summary-actions">
-                <p>{{ $draft ? 'Saving creates a new warmup revision.' : 'Creating saves the warmup draft for dispatch.' }}</p>
+                <p>{{ $draft ? 'Save changes and return to My Warmups, or create and send this revision.' : 'Save the Warmup or create and send it in one step.' }}</p>
                 <button class="btn btn-primary campaign-create-submit" id="warmup-summary-save-btn" type="button" onclick="document.getElementById('save-mailer-draft').click()">
                     <i class="fas fa-save mr-1"></i> {{ $draft ? 'SAVE WARMUP' : 'CREATE WARMUP' }}
+                </button>
+                <button class="btn btn-alt-primary campaign-create-submit mt-2" type="button" data-send-action>
+                    <i class="fas fa-paper-plane mr-1"></i> CREATE &amp; SEND WARMUP
                 </button>
             </section>
         </aside>
@@ -1357,7 +1387,14 @@
         });
         syncSelectedIpValues();
     };
-    const refresh = async () => {
+    const refresh = async (announce = false) => {
+        const reloadButton = byId('reload-send-options');
+        const reloadIcon = reloadButton?.querySelector('i');
+        if (announce && reloadButton) {
+            reloadButton.disabled = true;
+            reloadButton.setAttribute('aria-busy', 'true');
+            reloadIcon?.classList.add('fa-spin');
+        }
         const params = new URLSearchParams();
         const sponsor = byId('drop-sponsor');
         const isp = byId('drop-isp');
@@ -1369,7 +1406,7 @@
         multiValues(byId('send-servers')).forEach(id => params.append('server_ids[]', id));
         try {
             const response = await fetch(`${root.dataset.optionsUrl}?${params}`, {headers: {'Accept': 'application/json'}, credentials: 'same-origin'});
-            if (!response.ok) return;
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = (await response.json()).data;
             if (isDrop) {
                 const countrySelect = byId('drop-offer-country');
@@ -1418,8 +1455,15 @@
                 const current = negative.value;
                 selectFill(negative, data.negatives || [], row => row.id, row => row.name, current ? [current] : []);
             }
-        } catch (_) {
-            // Keep the last successfully loaded workspace catalog visible.
+            if (announce) window.AlphaLinkToast?.show('Servers and routes refreshed.', 'success');
+        } catch (error) {
+            if (announce) window.AlphaLinkToast?.show(`Servers and routes could not be refreshed${error?.message ? ` (${error.message})` : ''}.`, 'danger');
+        } finally {
+            if (announce && reloadButton) {
+                reloadButton.disabled = false;
+                reloadButton.removeAttribute('aria-busy');
+                reloadIcon?.classList.remove('fa-spin');
+            }
         }
     };
     [byId('drop-offer-country'), byId('drop-isp'), byId('drop-country'), byId('send-route'), byId('send-ip-type')]
@@ -1438,7 +1482,7 @@
         });
         refresh();
     });
-    byId('reload-send-options')?.addEventListener('click', refresh);
+    byId('reload-send-options')?.addEventListener('click', () => { void refresh(true); });
     byId('send-servers')?.addEventListener('change', () => {
         syncPmtaAdminUrl();
         syncPmtaPanelUrls();
@@ -1562,6 +1606,49 @@
     document.querySelectorAll('[aria-disabled="true"]').forEach(element => element.addEventListener('click', event => event.preventDefault()));
     byId('clear-mailer-params')?.addEventListener('click', event => { event.preventDefault(); form.reset(); if (window.jQuery?.fn?.selectpicker) window.jQuery(form).find('.selectpicker').selectpicker('refresh'); refresh(); });
     document.querySelector('[data-save-draft]')?.addEventListener('click', event => { event.preventDefault(); form.requestSubmit(); });
+    const appendWarmupTestValue = (testForm, name, value) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = String(value ?? '');
+        input.dataset.currentWarmupTest = 'true';
+        testForm.appendChild(input);
+    };
+    const prepareWarmupTest = testForm => {
+        testForm.querySelectorAll('[data-current-warmup-test]').forEach(input => input.remove());
+        const emailAddresses = byId('email-test-addresses')?.value || '';
+        appendWarmupTestValue(testForm, 'email_test_addresses', emailAddresses);
+        appendWarmupTestValue(testForm, 'return_path', byId('return_path')?.value || '');
+        appendWarmupTestValue(testForm, 'header', readEditor(headerEditor, byId('mailer-header')));
+        appendWarmupTestValue(testForm, 'body', readEditor(bodyEditor, byId('mailer-body')));
+        appendWarmupTestValue(testForm, 'html_body', readEditor(bodyEditor, byId('mailer-body')));
+        appendWarmupTestValue(testForm, 'domain', byId('mailer-domain')?.value || '');
+        const routeOption = byId('send-route')?.value || 'ip';
+        const ipType = byId('send-ip-type')?.value || 'all';
+        const sendType = byId('warmup-send-type')?.value || 'delay';
+        appendWarmupTestValue(testForm, 'route_option', routeOption);
+        appendWarmupTestValue(testForm, 'ip_type', ipType);
+        appendWarmupTestValue(testForm, 'send_type', sendType);
+        appendWarmupTestValue(testForm, 'send_setup[route_option]', routeOption);
+        appendWarmupTestValue(testForm, 'send_setup[ip_type]', ipType);
+        appendWarmupTestValue(testForm, 'send_setup[send_type]', sendType);
+        multiValues(byId('send-servers')).forEach(value => {
+            appendWarmupTestValue(testForm, 'server_ids[]', value);
+            appendWarmupTestValue(testForm, 'send_setup[server_ids][]', value);
+        });
+        multiValues(byId('send-ips')).forEach(value => {
+            appendWarmupTestValue(testForm, 'ip_ids[]', value);
+            appendWarmupTestValue(testForm, 'send_setup[ip_ids][]', value);
+        });
+        appendWarmupTestValue(testForm, 'send_setup[negative_id]', byId('mailer-negative')?.value || '');
+        appendWarmupTestValue(testForm, 'negative_id', byId('mailer-negative')?.value || '');
+        appendWarmupTestValue(testForm, 'send_setup[placeholder_combination]', form.querySelector('[data-placeholder-combination]')?.checked ? '1' : '0');
+        appendWarmupTestValue(testForm, 'send_setup[placeholder_all_combination]', form.querySelector('[data-placeholder-all-combination]')?.checked ? '1' : '0');
+        form.querySelectorAll('[name^="placeholder_inputs["]').forEach(field => {
+            appendWarmupTestValue(testForm, field.name, field.value);
+            appendWarmupTestValue(testForm, field.name.replace(/^placeholder_inputs/, 'send_setup[placeholder_inputs]'), field.value);
+        });
+    };
     document.addEventListener('click', event => {
         const testAction = event.target.closest('[data-test-action]');
         if (!testAction) return;
@@ -1572,12 +1659,20 @@
         if (testAddresses) testAddresses.value = byId('email-test-addresses')?.value || '';
         const key = testForm.querySelector('[name="idempotency_key"]');
         if (key && window.crypto?.randomUUID) key.value = window.crypto.randomUUID();
+        if (!isDrop) prepareWarmupTest(testForm);
         testForm.requestSubmit();
     });
     document.addEventListener('click', event => {
         const sendAction = event.target.closest('[data-send-action]');
         if (!sendAction) return;
         event.preventDefault();
+        if (!isDrop) {
+            byId('warmup-submission-intent').value = 'create_send';
+            const sendKey = byId('warmup-send-idempotency-key');
+            if (sendKey && window.crypto?.randomUUID) sendKey.value = window.crypto.randomUUID();
+            form.requestSubmit(byId('save-mailer-draft'));
+            return;
+        }
         const sendForm = byId('mailer-draft-send-action');
         if (!sendForm) return;
         const key = sendForm.querySelector('[name="idempotency_key"]');

@@ -13,12 +13,12 @@ use App\Services\Campaigns\ClaimCampaignSendBatch;
 use App\Services\Campaigns\FinalizeCampaignSendRun;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\ReclaimExpiredCampaignSendBatch;
+use App\Services\Campaigns\SendRunPacing;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -51,10 +51,11 @@ class ProcessCampaignSendRun implements ShouldQueue
         CampaignDeliveryAttemptLifecycle $attemptLifecycle,
         ReclaimExpiredCampaignSendBatch $reclaimer,
         FinalizeCampaignSendRun $finalizer,
+        SendRunPacing $pacing,
     ): void {
         $lock = Cache::lock('campaign-send-run:'.$this->sendRunId, 660);
         if (! $lock->get()) {
-            $this->release(15);
+            $this->release(1);
 
             return;
         }
@@ -67,12 +68,15 @@ class ProcessCampaignSendRun implements ShouldQueue
             }
 
             $options = $run->execution_options ?? [];
-            $nextBatchAt = $options['next_batch_at'] ?? null;
-            if (is_string($nextBatchAt) && $nextBatchAt !== '') {
-                if (Carbon::parse($nextBatchAt)->isFuture()) {
-                    return;
-                }
-                unset($options['next_batch_at']);
+            if ($pacing->deferUntil(
+                $pacing->deadlineFromOptions($options),
+                fn (int $seconds) => $this->release($seconds),
+                static fn (int $microseconds) => usleep($microseconds),
+            )) {
+                return;
+            }
+            if (array_key_exists('next_batch_at_ms', $options) || array_key_exists('next_batch_at', $options)) {
+                unset($options['next_batch_at_ms'], $options['next_batch_at']);
                 $run->execution_options = $options;
                 $run->save();
             }
@@ -104,7 +108,7 @@ class ProcessCampaignSendRun implements ShouldQueue
             if ($batch->state !== 'leased' || ! is_string($batch->lease_token)) {
                 $run->refresh();
                 if (in_array($run->state, ['planned', 'running'], true)) {
-                    $this->dispatchContinuation($run, $context, $batch);
+                    $this->dispatchContinuation($run, $context, $batch, $pacing);
                 }
 
                 return;
@@ -237,7 +241,7 @@ class ProcessCampaignSendRun implements ShouldQueue
                 $run->refresh();
             }
             if (in_array($run->state, ['planned', 'running'], true)) {
-                $this->dispatchContinuation($run, $context, $batch);
+                $this->dispatchContinuation($run, $context, $batch, $pacing);
             }
         } catch (Throwable $exception) {
             if ($run instanceof CampaignSendRun) {
@@ -281,7 +285,17 @@ class ProcessCampaignSendRun implements ShouldQueue
         $setup = data_get($run->revision?->payload, 'send_setup', []);
         $parameters = [...$setup, ...(array) ($setup['parameters'] ?? [])];
         $sleepEmail = max(0, (int) ($parameters['sleep_email'] ?? 0));
-        $batchSize = $sleepEmail > 0 || (int) ($parameters['sleep_ip'] ?? 0) > 0 ? 1 : 25;
+        $sleepIp = max(0, (int) ($parameters['sleep_ip'] ?? 0));
+        $run->loadMissing('campaign');
+        if ($run->campaign?->kind === 'drop') {
+            $batchSize = min(1000, max(1, (int) ($parameters['batch'] ?? 1000)));
+        } elseif ($sleepEmail > 0) {
+            $batchSize = 1;
+        } elseif ($sleepIp > 0) {
+            $batchSize = min(1000, max(1, (int) ($parameters['fraction_ip'] ?? 1)));
+        } else {
+            $batchSize = 25;
+        }
 
         return $claimer->claim(
             (string) $run->getKey(),
@@ -292,24 +306,35 @@ class ProcessCampaignSendRun implements ShouldQueue
         );
     }
 
-    private function dispatchContinuation(CampaignSendRun $run, array $context, CampaignSendBatch $batch): void
+    private function dispatchContinuation(CampaignSendRun $run, array $context, CampaignSendBatch $batch, SendRunPacing $pacing): void
     {
         $setup = $context['setup'];
         $parameters = [...$setup, ...(array) ($setup['parameters'] ?? [])];
-        $delay = max(0, (int) ($parameters['sleep_email'] ?? 0));
-        $fraction = max(1, (int) ($parameters['fraction_ip'] ?? 1));
-        if ((int) ($parameters['sleep_ip'] ?? 0) > 0 && ((int) $batch->last_position - (int) $run->start_position + 1) % $fraction === 0) {
-            $delay += (int) $parameters['sleep_ip'];
+        $run->loadMissing('campaign');
+        if ($run->campaign?->kind === 'drop') {
+            $delayMilliseconds = max(0, (int) ($parameters['delay'] ?? 0));
+        } else {
+            $delayMilliseconds = max(0, (int) ($parameters['sleep_email'] ?? 0));
+            $fraction = max(1, (int) ($parameters['fraction_ip'] ?? 1));
+            if ((int) ($parameters['sleep_ip'] ?? 0) > 0 && ((int) $batch->last_position - (int) $run->start_position + 1) % $fraction === 0) {
+                $delayMilliseconds += (int) $parameters['sleep_ip'];
+            }
         }
 
         $options = $run->execution_options ?? [];
-        $options['next_batch_at'] = now()->addSeconds($delay)->toIso8601String();
+        unset($options['next_batch_at'], $options['next_batch_at_ms']);
+        $deadlineMilliseconds = $pacing->deadlineAfter($delayMilliseconds);
+        if ($deadlineMilliseconds !== null) {
+            $options['next_batch_at_ms'] = $deadlineMilliseconds;
+            $options['next_batch_at'] = $pacing->iso8601Deadline($deadlineMilliseconds);
+        }
         $run->execution_options = $options;
         $run->save();
 
         $job = self::dispatch((string) $run->getKey())->onQueue('campaign-sends');
-        if ($delay > 0) {
-            $job->delay(now()->addSeconds($delay));
+        $queueDelaySeconds = $pacing->queueDelaySeconds($delayMilliseconds);
+        if ($queueDelaySeconds > 0) {
+            $job->delay(now()->addSeconds($queueDelaySeconds));
         }
     }
 

@@ -18,8 +18,6 @@ use JsonException;
  */
 class PrepareCampaignSendRun
 {
-    private const SEND_TYPES = ['delay', 'delayp', 'delayps', 'hs', 'hsp', 'hsps', 'pickup', 'pickups'];
-
     /**
      * @throws JsonException
      */
@@ -54,7 +52,7 @@ class PrepareCampaignSendRun
         }
 
         $sendType = data_get($revision->payload, 'send_setup.send_type');
-        if (! is_string($sendType) || ! in_array($sendType, self::SEND_TYPES, true)) {
+        if (! is_string($sendType) || ! in_array($sendType, CampaignSendTypeCatalog::forCampaignKind((string) $campaign->kind), true)) {
             throw ValidationException::withMessages(['send_type' => 'The saved campaign revision uses an unsupported send type.']);
         }
 
@@ -77,6 +75,21 @@ class PrepareCampaignSendRun
             throw ValidationException::withMessages(['idempotency_key' => 'A valid send-plan idempotency key is required.']);
         }
 
+        $sendSetup = (array) data_get($revision->payload, 'send_setup', []);
+        $parameters = [...$sendSetup, ...(array) ($sendSetup['parameters'] ?? [])];
+        $sendSettings = [
+            'send_type' => $sendType,
+            'total_send' => $plannedCount,
+            'fraction_ip' => max(1, (int) ($parameters['fraction_ip'] ?? 1)),
+            'sleep_email_ms' => max(0, (int) ($parameters['sleep_email'] ?? 0)),
+            'sleep_ip_ms' => max(0, (int) ($parameters['sleep_ip'] ?? 0)),
+            'duplicate_data' => max(1, (int) ($parameters['duplicate_data'] ?? 1)),
+            'test_after' => max(0, (int) ($parameters['test_after'] ?? $parameters['seed_every'] ?? 0)),
+            'bounce_limit' => max(0, (int) ($parameters['bounce_limit'] ?? 0)),
+            'batch' => max(1, (int) ($parameters['batch'] ?? 1000)),
+            'delay_ms' => max(0, (int) ($parameters['delay'] ?? 0)),
+        ];
+
         $fingerprint = hash('sha256', json_encode([
             'campaign_id' => (string) $campaign->getKey(),
             'revision_id' => (string) $revision->getKey(),
@@ -88,7 +101,7 @@ class PrepareCampaignSendRun
             'recipients_sha256' => (string) $snapshot->recipients_sha256,
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
-        return DB::transaction(function () use ($campaign, $revision, $snapshot, $actor, $idempotencyKey, $fingerprint, $sendType, $plannedCount, $startFrom): CampaignSendRun {
+        return DB::transaction(function () use ($campaign, $revision, $snapshot, $actor, $idempotencyKey, $fingerprint, $sendType, $plannedCount, $startFrom, $sendSettings): CampaignSendRun {
             $runId = (string) Str::uuid();
             $now = now();
             $inserted = DB::table('campaign_send_runs')->insertOrIgnore([
@@ -105,6 +118,7 @@ class PrepareCampaignSendRun
                 'execution_options' => json_encode([
                     'start_from' => $startFrom,
                     'end_position' => $startFrom + $plannedCount,
+                    'send_settings' => $sendSettings,
                     'auto_failover_enabled' => (bool) data_get($revision->payload, 'send_setup.auto_failover_enabled', false),
                     'failover_error_patterns' => (string) (data_get($revision->payload, 'send_setup.failover_error_patterns') ?: '421, rate limit, too many connections, temporarily deferred, user complaints'),
                     'failover_threshold' => (int) (data_get($revision->payload, 'send_setup.failover_threshold') ?: 5),

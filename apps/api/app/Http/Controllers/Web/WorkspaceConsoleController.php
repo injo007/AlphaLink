@@ -34,6 +34,7 @@ use App\Services\Campaigns\AlphaLinkCampaignTagRenderer;
 use App\Services\Campaigns\AlphaLinkPmtaAdminRestart;
 use App\Services\Campaigns\CampaignPersonalizationTags;
 use App\Services\Campaigns\CampaignRedirectUrlPolicy;
+use App\Services\Campaigns\CampaignSendTypeCatalog;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\PmtaMonitorProxy;
 use App\Services\Campaigns\PmtaPanelUrl;
@@ -1399,7 +1400,7 @@ class WorkspaceConsoleController extends Controller
                     'send_setup.from_asset_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
                     'send_setup.subject_asset_ids' => ['sometimes', 'array'],
                     'send_setup.subject_asset_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
-                    'send_setup.send_type' => ['required', 'in:delay,delayp,delayps,hs,hsp,hsps,pickup,pickups'],
+                    'send_setup.send_type' => ['required', Rule::in(CampaignSendTypeCatalog::forCampaignKind((string) $campaign->kind))],
                     'send_setup.total_send' => ['required', 'integer', 'min:1'],
                     'send_setup.fraction_ip' => ['required', 'integer', 'min:1'],
                     'send_setup.sleep_email' => ['required', 'integer', 'min:0'],
@@ -1503,7 +1504,8 @@ class WorkspaceConsoleController extends Controller
         });
 
         if ($unchangedMarketingEdit) {
-            throw ValidationException::withMessages(['campaign' => 'Nothing Changed.']);
+            return redirect()->route('console.campaigns.index', $workspace->getKey())
+                ->with('status', 'Campaign saved. No new revision was needed because there were no changes.');
         }
 
         return redirect()->route($campaign->kind === 'marketing' ? 'console.campaigns.index' : 'console.campaigns.show', $campaign->kind === 'marketing' ? [$workspace->getKey()] : [$workspace->getKey(), $campaign->getKey()])
@@ -1669,7 +1671,7 @@ class WorkspaceConsoleController extends Controller
             'send_setup.ip_ids.*' => ['required', 'distinct', $this->campaignRouteChoiceIdRule()],
             'send_setup.route_option' => ['required', 'in:ip,vmta,smtp,domain'],
             'send_setup.ip_type' => ['required', 'in:all,ipv4,ipv6'],
-            'send_setup.send_type' => ['required', 'in:delay,delayp,delayps,hs,hsp,hsps,pickup,pickups'],
+            'send_setup.send_type' => ['required', Rule::in(CampaignSendTypeCatalog::CAMPAIGN_AND_WARMUP)],
             'send_setup.from_asset_ids' => ['sometimes', 'array'],
             'send_setup.from_asset_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
             'send_setup.subject_asset_ids' => ['sometimes', 'array'],
@@ -3176,7 +3178,7 @@ class WorkspaceConsoleController extends Controller
             'send_setup.server_ids.*' => ['required', 'uuid', 'distinct'],
             'send_setup.ip_ids' => ['required', 'array', 'min:1'],
             'send_setup.ip_ids.*' => ['required', 'distinct', $this->campaignRouteChoiceIdRule()],
-            'send_setup.send_type' => ['required', 'in:delay,delayp,delayps,hs,hsp,hsps,pickup,pickups'],
+            'send_setup.send_type' => ['required', Rule::in(CampaignSendTypeCatalog::forCampaignKind($campaignKind ?? 'marketing'))],
             'send_setup.total_send' => ['required', 'integer', 'min:1'],
             'send_setup.fraction_ip' => ['required', 'integer', 'min:1'],
             'send_setup.sleep_email' => ['required', 'integer', 'min:0'],

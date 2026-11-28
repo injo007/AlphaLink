@@ -2715,61 +2715,101 @@
                     return label.join(' | ');
                 };
                 let loadedRoute = route.value;
-                const reloadIps = async () => {
+                const reloadButton = document.getElementById('campaign-servers-reload');
+                const reloadIcon = reloadButton?.querySelector('i');
+                let reloadSequence = 0;
+                let reloadController = null;
+                const reloadIps = async (announce = false) => {
+                    const ticket = ++reloadSequence;
+                    reloadController?.abort();
+                    reloadController = new AbortController();
+                    if (reloadButton) {
+                        reloadButton.disabled = true;
+                        reloadButton.setAttribute('aria-busy', 'true');
+                    }
+                    reloadIcon?.classList.add('fa-spin');
                     const requestedRoute = route.value;
-                    const selectedServerIds = new Set(Array.from(servers.selectedOptions).map((option) => String(option.value)));
+                    const previouslySelectedServerIds = new Set(Array.from(servers.selectedOptions).map((option) => String(option.value)));
                     const query = new URLSearchParams({route: requestedRoute, ip_type: type.value});
-                    selectedServerIds.forEach((serverId) => query.append('server_ids[]', serverId));
-                    const response = await fetch(`${form.dataset.optionsUrl}?${query}`, {headers: {'Accept': 'application/json'}, credentials: 'same-origin'});
-                    if (!response.ok) return;
-                    const result = (await response.json()).data;
-                    const selected = requestedRoute === loadedRoute
-                        ? new Set(Array.from(ips.selectedOptions)
-                            .filter((option) => selectedServerIds.has(String(option.dataset.serverId)))
-                            .map(routeChoiceIdentity))
-                        : new Set();
-                    ips.replaceChildren();
-                    result.ips.forEach(ip => {
-                        const option = new Option(routeChoiceLabel(ip, requestedRoute), ip.id);
-                        option.dataset.route = requestedRoute;
-                        option.dataset.routeChoiceId = String(ip.id);
-                        option.dataset.serverId = String(ip.server_id);
-                        option.dataset.managedServerIpId = String(ip.managed_server_ip_id || '');
-                        option.dataset.pmtaName = String(ip.pmta_name || '');
-                    option.dataset.username = String(ip.username || '');
-                    option.dataset.name = String(ip.name || '');
-                    option.dataset.ip = String(ip.ip || '');
-                    option.dataset.dns = String(ip.dns || '');
-                    option.dataset.vmtaDomain = String(ip.vmta_domain || '');
-                    option.dataset.domain = String(ip.domain || '');
-                    option.dataset.trackingHost = String(ip.tracking_host || '');
-                    option.selected = selected.has(routeChoiceIdentity(option));
-                        ips.add(option);
-                    });
-                    loadedRoute = requestedRoute;
-                    refresh(ips);
-                    renderIpLists();
-                    refreshCampaignDomainOptions(result.campaign_domains);
-                    syncCampaignDomainToRoute();
-                    renderDomainReadiness(result.domain_routes);
-                    panels.replaceChildren();
-                    const selectedServers = new Set(Array.from(servers.selectedOptions).map(option => option.value));
-                    result.servers.filter(server => selectedServers.has(String(server.id))).forEach(server => {
-                        const link = document.createElement('a');
-                        const monitorUrl = server.pmta_panel_display_url || server.pmta_panel_url;
-                        link.href = monitorUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
-                        link.className = 'mr-3';
-                        const usesReadOnlyProxy = monitorUrl !== server.pmta_panel_url;
-                        const panelScheme = new URL(monitorUrl, window.location.href).protocol === 'https:' ? 'HTTPS' : 'HTTP/IP';
-                        link.textContent = `Open PMTA monitor (${usesReadOnlyProxy ? 'HTTPS read-only proxy' : panelScheme}) — ${server.name}`;
-                        panels.append(link);
-                    });
+                    previouslySelectedServerIds.forEach((serverId) => query.append('server_ids[]', serverId));
+                    try {
+                        const response = await fetch(`${form.dataset.optionsUrl}?${query}`, {
+                            headers: {'Accept': 'application/json'},
+                            credentials: 'same-origin',
+                            signal: reloadController.signal,
+                        });
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        const result = (await response.json()).data;
+                        if (ticket !== reloadSequence) return false;
+
+                        servers.replaceChildren();
+                        result.servers.forEach(server => {
+                            const option = new Option(`${server.name} | ${server.ip}`, String(server.id));
+                            option.selected = previouslySelectedServerIds.has(String(server.id));
+                            servers.add(option);
+                        });
+                        refresh(servers);
+                        const selectedServerIds = new Set(Array.from(servers.selectedOptions).map(option => String(option.value)));
+                        const selected = requestedRoute === loadedRoute
+                            ? new Set(Array.from(ips.selectedOptions)
+                                .filter((option) => selectedServerIds.has(String(option.dataset.serverId)))
+                                .map(routeChoiceIdentity))
+                            : new Set();
+                        ips.replaceChildren();
+                        result.ips.forEach(ip => {
+                            const option = new Option(routeChoiceLabel(ip, requestedRoute), ip.id);
+                            option.dataset.route = requestedRoute;
+                            option.dataset.routeChoiceId = String(ip.id);
+                            option.dataset.serverId = String(ip.server_id);
+                            option.dataset.managedServerIpId = String(ip.managed_server_ip_id || '');
+                            option.dataset.pmtaName = String(ip.pmta_name || '');
+                            option.dataset.username = String(ip.username || '');
+                            option.dataset.name = String(ip.name || '');
+                            option.dataset.ip = String(ip.ip || '');
+                            option.dataset.dns = String(ip.dns || '');
+                            option.dataset.vmtaDomain = String(ip.vmta_domain || '');
+                            option.dataset.domain = String(ip.domain || '');
+                            option.dataset.trackingHost = String(ip.tracking_host || '');
+                            option.selected = selected.has(routeChoiceIdentity(option));
+                            ips.add(option);
+                        });
+                        loadedRoute = requestedRoute;
+                        refresh(ips);
+                        renderIpLists();
+                        refreshCampaignDomainOptions(result.campaign_domains);
+                        syncCampaignDomainToRoute();
+                        renderDomainReadiness(result.domain_routes);
+                        panels.replaceChildren();
+                        const selectedServers = new Set(Array.from(servers.selectedOptions).map(option => option.value));
+                        result.servers.filter(server => selectedServers.has(String(server.id))).forEach(server => {
+                            const link = document.createElement('a');
+                            const monitorUrl = server.pmta_panel_display_url || server.pmta_panel_url;
+                            link.href = monitorUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
+                            link.className = 'mr-3';
+                            const usesReadOnlyProxy = monitorUrl !== server.pmta_panel_url;
+                            const panelScheme = new URL(monitorUrl, window.location.href).protocol === 'https:' ? 'HTTPS' : 'HTTP/IP';
+                            link.textContent = `Open PMTA monitor (${usesReadOnlyProxy ? 'HTTPS read-only proxy' : panelScheme}) — ${server.name}`;
+                            panels.append(link);
+                        });
+                        if (announce) setToolStatus('Servers and IPs refreshed.', 'success');
+                        return true;
+                    } catch (error) {
+                        if (ticket !== reloadSequence || error.name === 'AbortError') return false;
+                        setToolStatus(`Servers and IPs could not be refreshed${error.message ? ` (${error.message})` : ''}.`, 'danger');
+                        return false;
+                    } finally {
+                        if (ticket === reloadSequence) {
+                            if (reloadButton) {
+                                reloadButton.disabled = false;
+                                reloadButton.removeAttribute('aria-busy');
+                            }
+                            reloadIcon?.classList.remove('fa-spin');
+                        }
+                    }
                 };
                 syncCampaignDomainToRoute();
-                [servers, route, type].forEach(element => element.addEventListener('change', () => { reloadIps().catch(() => {}); }));
-                document.getElementById('campaign-servers-reload').addEventListener('click', () => {
-                    reloadIps().then(() => setToolStatus('Servers and IPs reloaded.')).catch(() => setToolStatus('Servers and IPs could not be reloaded.', 'danger'));
-                });
+                [servers, route, type].forEach(element => element.addEventListener('change', () => { void reloadIps(); }));
+                reloadButton?.addEventListener('click', () => { void reloadIps(true); });
                 return;
             }
 
@@ -2777,6 +2817,7 @@
             const saveButton = document.getElementById('campaign-save-button');
             const status = document.getElementById('campaign-options-status');
             const retry = document.getElementById('campaign-options-retry');
+            const reloadButton = document.getElementById('campaign-servers-reload');
             const panels = document.getElementById('campaign-pmta-panels');
             const snapshotProgress = document.getElementById('campaign-snapshot-progress');
             const snapshotStage = document.getElementById('campaign-snapshot-stage');
@@ -3074,6 +3115,11 @@
                 retry.classList.add('d-none');
                 saveButton.disabled = true;
                 saveButton.setAttribute('aria-busy', 'true');
+                if (reloadButton) {
+                    reloadButton.disabled = true;
+                    reloadButton.setAttribute('aria-busy', 'true');
+                    reloadButton.querySelector('i')?.classList.add('fa-spin');
+                }
                 setStatus('Loading updated campaign choices…', 'info');
                 try {
                     const response = await fetch(`${url}?${query.toString()}`, {
@@ -3100,6 +3146,11 @@
                     if (ticket === sequence) {
                         saveButton.disabled = !optionsReady || campaignSaved;
                         saveButton.removeAttribute('aria-busy');
+                        if (reloadButton) {
+                            reloadButton.disabled = false;
+                            reloadButton.removeAttribute('aria-busy');
+                            reloadButton.querySelector('i')?.classList.remove('fa-spin');
+                        }
                     }
                 }
             };
@@ -3246,7 +3297,7 @@
                 });
             });
             retry.addEventListener('click', loadOptions);
-            document.getElementById('campaign-servers-reload').addEventListener('click', loadOptions);
+            reloadButton?.addEventListener('click', loadOptions);
             form.addEventListener('submit', (event) => {
                 if (event.submitter?.hasAttribute('formnovalidate')) return;
                 if (!form.reportValidity()) {

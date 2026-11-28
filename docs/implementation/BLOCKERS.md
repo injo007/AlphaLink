@@ -2,6 +2,12 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-28 Global account workspace assignment — E-IAM-21
+
+Global User Accounts previously created users without a `workspace_user` association. `ResolveCurrentWorkspace` returns 404 for regular users without an active workspace, explaining the post-login failure. New account creation now requires an active workspace available to the creator and persists membership atomically with role assignment before returning credentials. The active/only workspace is preselected when possible. This fixes future creations; previously created unassigned users still need a manager to attach them in Workspace Access. The authenticated production UI was not opened or logged into, per the user's instruction. DMS history is UNKNOWN; keep ALPHALINK-IAM-001 IMPLEMENTING.
+
+PHP 8.5.12 `AlphaLinkGlobalUserManagementTest` passes 8 tests / 89 assertions across both account types, workspace membership persistence, inactive workspace rejection, and a synthetic Mailer sign-in reaching Campaigns. PHP 8.5 Pint and diff checks pass. `CleanWorkspaceEntryRoutesTest` has two unrelated stale dashboard title assertions; no production login or live state change was performed.
+
 ## 2026-11-27 Mailer post-login landing — E-IAM-20
 
 Mailer sign-in now chooses Campaigns only when the user's existing permissions include `campaigns.view`; otherwise it selects the permission-backed PMTA My IPs route. This avoids sending limited Mailers to a dashboard or Campaigns route they cannot access. Synthetic route checks pass 3 / 11 assertions, and Profile/authentication tests pass 6 / 33 in PHP 8.5.12. Pint and diff checks pass. Commit `2bfa25fcc8ac27fe1b48b4be5d31928bd806e6c5` is pushed to GitHub `master` and active on AlphaLink `baseheavy.shop`. The release backup `/var/backups/alphalink/deploy-2bfa25fcc8ac27fe1b48b4be5d31928bd806e6c5-20261127T223700Z.dump` passes `pg_restore --list`; PHP-FPM, Horizon, suppression, and scheduler services are active; the deployed `AuthController` hash matches local source; and server-local HTTPS `/up` returns 200. The app was not logged into; authenticated UI verification remains pending. Historical DMS behavior is UNKNOWN; keep ALPHALINK-IAM-001 IMPLEMENTING.

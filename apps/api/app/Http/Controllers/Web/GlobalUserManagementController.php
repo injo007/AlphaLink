@@ -54,7 +54,16 @@ class GlobalUserManagementController extends Controller
 
     public function create(Request $request): View
     {
-        $this->authorizeUserManagement($request);
+        $actor = $this->authorizeUserManagement($request);
+        $workspaces = app(WorkspaceAccess::class)->all($actor);
+        $activeWorkspaceId = (string) $request->session()->get('active_workspace_id', '');
+        $selectedWorkspace = $workspaces->first(
+            fn (Workspace $availableWorkspace): bool => (string) $availableWorkspace->getKey() === $activeWorkspaceId,
+        );
+
+        if (! $selectedWorkspace && $workspaces->count() === 1) {
+            $selectedWorkspace = $workspaces->first();
+        }
 
         return view('console.global-users.create', [
             'types' => User::TYPES,
@@ -66,29 +75,34 @@ class GlobalUserManagementController extends Controller
             'permissionsAreRoleDefaults' => true,
             'selectedAccessRole' => User::ACCESS_ROLE_OPERATOR,
             'mailerPermissions' => User::MAILER_SENDING_PERMISSIONS,
+            'availableWorkspaces' => $workspaces,
+            'selectedWorkspaceId' => $selectedWorkspace?->getKey(),
             'workspace' => $this->layoutWorkspace($request->user()),
         ]);
     }
 
-    public function store(Request $request, AccessRoleAssignment $accessRoleAssignment): JsonResponse
+    public function store(Request $request, AccessRoleAssignment $accessRoleAssignment, WorkspaceAccess $workspaceAccess): JsonResponse
     {
         $actor = $this->authorizeUserManagement($request);
+        $availableWorkspaceIds = $workspaceAccess->all($actor)->modelKeys();
         $request->merge(['username' => Str::lower(trim((string) $request->input('username')))]);
         $data = $request->validate([
             'username' => ['required', 'alpha', 'min:4', 'max:255', $this->uniqueUsernameRule()],
             'full_name' => ['required', 'string', 'min:4', 'max:255'],
             'type' => ['required', 'string', Rule::in(User::TYPES)],
+            'workspace_id' => ['required', 'string', Rule::in($availableWorkspaceIds)],
             'access_role' => ['required', 'string', Rule::in($this->assignableAccessRoles($actor))],
             'permission_selection_submitted' => ['required', 'accepted'],
             'roles' => ['sometimes', 'array', 'max:64'],
             'roles.*' => ['string', Rule::in(array_keys(User::permissionChoices()))],
             'avatar' => $this->avatarUploadRules(),
         ]);
+        $workspace = $workspaceAccess->find($actor, (string) $data['workspace_id']);
 
         $password = Str::random(8);
         $avatarPath = null;
         try {
-            $user = DB::transaction(function () use ($actor, $data, $password, $request, $accessRoleAssignment, &$avatarPath): User {
+            $user = DB::transaction(function () use ($actor, $data, $password, $request, $accessRoleAssignment, $workspace, &$avatarPath): User {
                 $permissions = in_array($data['access_role'], [User::ACCESS_ROLE_OWNER, User::ACCESS_ROLE_ADMIN], true)
                     ? null
                     : User::normalizePermissions($data['roles'] ?? []);
@@ -113,6 +127,10 @@ class GlobalUserManagementController extends Controller
                 }
 
                 $accessRoleAssignment->assign($actor, $user, $data['access_role']);
+                $workspace->users()->attach($user->getKey(), [
+                    'role' => $data['access_role'],
+                    'joined_at' => now(),
+                ]);
 
                 return $user;
             });

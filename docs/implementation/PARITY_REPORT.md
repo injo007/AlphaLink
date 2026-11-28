@@ -2,6 +2,12 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## Global account workspace assignment — E-IAM-21 (2026-11-28)
+
+The reported new-user 404 was caused by Global User Accounts creating a `users` row without a `workspace_user` row. The local `ResolveCurrentWorkspace` middleware returns 404 when a regular account has no active workspace association. Global User Accounts now requires a creator-accessible active workspace and attaches the created user in the same database transaction as global-role assignment, before returning login credentials. The form defaults to the current workspace or the sole available workspace; inaccessible/inactive workspace IDs fail validation. Existing unassigned accounts are unchanged.
+
+PHPUnit 12.5.40 on PHP 8.5.12: `AlphaLinkGlobalUserManagementTest` passes 8 tests / 89 assertions for both supported account types, membership persistence, invalid workspace rejection, and a synthetic Mailer login redirect plus Campaigns 200 response. PHP 8.5 Pint and `git diff --check` pass. `CleanWorkspaceEntryRoutesTest` has two title expectation failures for `Main Dashboard` versus the rendered `Dashboard`; it is unrelated to these modified files and does not establish a redirect regression. No production login or authenticated UI verification was attempted. The DMS workflow was not inspected, so historical behavior is UNKNOWN. Record the original defect as BUG and retain ALPHALINK-IAM-001 as IMPLEMENTING; no parity claim is made.
+
 ## Mailer post-login landing — E-IAM-20 (2026-11-27)
 
 The user requested that Mailers land on Campaigns after sign-in and not be sent to pages they cannot access. `AuthController::store` now sends a Mailer with `campaigns.view` to the workspace Campaigns route. A Mailer without campaign view permission lands on the existing PMTA My IPs route, which the Mailer PMTA permission baseline allows. Admin/other account types retain the dashboard destination. No permissions, workspace membership, or stored data changed.

@@ -21,7 +21,7 @@ class AlphaLinkGlobalUserManagementTest extends TestCase
 
         $this->actingAs($admin)->get(route('console.global-users.index'))
             ->assertOk()
-            ->assertSee('GLOBAL ACCOUNT ADMINISTRATION')
+            ->assertSee('Global Users & System Operators')
             ->assertSee('ADD USER')
             ->assertSee('Unassigned Account')
             ->assertSee('USERNAME')
@@ -32,11 +32,19 @@ class AlphaLinkGlobalUserManagementTest extends TestCase
             ->assertJsonPath('data.0.username', $admin->username)
             ->assertJsonPath('data.2.full_name', $unassignedAccount->name);
 
+        $this->actingAs($admin)->get(route('console.global-users.create'))
+            ->assertOk()
+            ->assertSee('Workspace Access')
+            ->assertSee('value="'.$otherWorkspace->getKey().'"', false);
+
         $created = $this->actingAs($admin)->postJson(route('console.global-users.store'), [
             'username' => 'NewMailer',
             'full_name' => 'New Global Mailer',
             'type' => User::MAILER,
-            'roles' => ['manage_users', 'share_headers'],
+            'workspace_id' => $otherWorkspace->getKey(),
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'permission_selection_submitted' => '1',
+            'roles' => ['campaigns.view', 'campaigns.manage'],
         ])->assertOk()
             ->assertJsonPath('data', 'User created');
 
@@ -44,20 +52,23 @@ class AlphaLinkGlobalUserManagementTest extends TestCase
         $credentials = $created->json('info');
         $temporaryPassword = explode(':', $credentials, 2)[1];
         $this->assertNull($user->email);
-        $this->assertSame(['manage_users', 'share_headers'], $user->roles);
+        $this->assertSame(['campaigns.view', 'campaigns.manage'], $user->roles);
         $this->assertTrue(password_verify($temporaryPassword, $user->password));
-        $this->assertFalse($otherWorkspace->users()->whereKey($user->getKey())->exists());
+        $this->assertTrue($otherWorkspace->users()->whereKey($user->getKey())->exists());
+        $this->assertSame(User::ACCESS_ROLE_OPERATOR, $user->workspaces()->firstOrFail()->pivot->role);
 
         $this->actingAs($admin)->putJson(route('console.global-users.update', $user), [
             'username' => 'UpdatedMailer',
             'full_name' => 'Updated Global Mailer',
             'type' => User::MAILER,
-            'roles' => ['manage_users'],
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'permission_selection_submitted' => '1',
+            'roles' => ['campaigns.view'],
         ])->assertOk()->assertJsonPath('data', 'User updated');
         $user->refresh();
         $this->assertSame('UpdatedMailer', $user->username);
         $this->assertSame('Updated Global Mailer', $user->name);
-        $this->assertSame(['manage_users'], $user->roles);
+        $this->assertSame(['campaigns.view'], $user->roles);
 
         $this->actingAs($admin)->putJson(route('console.global-users.password.update', $user), [
             'password' => 'Updated-password-2026',
@@ -82,14 +93,81 @@ class AlphaLinkGlobalUserManagementTest extends TestCase
 
         $this->post(route('logout'));
         $this->post(route('login.store'), ['username' => 'UPDATEDMAILER', 'password' => 'Updated-password-2026'])
-            ->assertRedirect(route('clean.console.infrastructure.my-ips'));
+            ->assertRedirect(route('console.mailer.campaigns'));
         $this->assertAuthenticatedAs($user);
+        $this->get(route('console.mailer.campaigns'))->assertOk();
+    }
+
+    public function test_global_user_creation_rejects_inactive_workspaces(): void
+    {
+        $admin = User::factory()->create([
+            'type' => User::ADMIN,
+            'access_role' => User::ACCESS_ROLE_ADMIN,
+            'roles' => [],
+        ]);
+        $inactiveWorkspace = Workspace::query()->create([
+            'name' => 'Inactive Workspace',
+            'slug' => 'inactive-'.Str::lower(Str::random(8)),
+            'status' => 'inactive',
+            'created_by' => $admin->getKey(),
+        ]);
+
+        $this->actingAs($admin)->postJson(route('console.global-users.store'), [
+            'username' => 'OutsideWorkspace',
+            'full_name' => 'Outside Workspace User',
+            'type' => User::MAILER,
+            'workspace_id' => $inactiveWorkspace->getKey(),
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'permission_selection_submitted' => '1',
+            'roles' => ['campaigns.view'],
+        ])->assertUnprocessable()->assertJsonValidationErrors(['workspace_id']);
+
+        $this->assertDatabaseMissing('users', ['username' => 'outsideworkspace']);
+    }
+
+    public function test_global_account_creation_assigns_a_workspace_for_each_account_type(): void
+    {
+        $owner = User::factory()->create([
+            'type' => User::ADMIN,
+            'access_role' => User::ACCESS_ROLE_OWNER,
+            'roles' => [],
+        ]);
+        $workspace = $this->workspaceFor($owner);
+
+        foreach (User::TYPES as $index => $type) {
+            $username = 'NewAccount'.chr(65 + $index);
+            $roles = $type === User::MAILER ? ['campaigns.view'] : ['dashboard.view'];
+            $created = $this->actingAs($owner)->postJson(route('console.global-users.store'), [
+                'username' => $username,
+                'full_name' => 'New Account '.$type,
+                'type' => $type,
+                'workspace_id' => $workspace->getKey(),
+                'access_role' => User::ACCESS_ROLE_OPERATOR,
+                'permission_selection_submitted' => '1',
+                'roles' => $roles,
+            ])->assertOk()->assertJsonPath('data', 'User created');
+
+            $user = User::query()->where('username', strtolower($username))->sole();
+            $this->assertDatabaseHas('workspace_user', [
+                'user_id' => $user->getKey(),
+                'workspace_id' => $workspace->getKey(),
+                'role' => User::ACCESS_ROLE_OPERATOR,
+            ]);
+        }
     }
 
     public function test_global_user_routes_allow_reference_role_and_deny_other_mailers(): void
     {
-        $manager = User::factory()->create(['type' => User::MAILER, 'roles' => ['manage_users']]);
-        $ordinary = User::factory()->create(['type' => User::MAILER, 'roles' => []]);
+        $manager = User::factory()->create([
+            'type' => User::MAILER,
+            'access_role' => User::ACCESS_ROLE_ADMIN,
+            'roles' => ['campaigns.view'],
+        ]);
+        $ordinary = User::factory()->create([
+            'type' => User::MAILER,
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'roles' => [],
+        ]);
 
         $this->actingAs($manager)->get(route('console.global-users.index'))->assertOk();
         $this->actingAs($ordinary)->get(route('console.global-users.index'))->assertForbidden();
@@ -102,7 +180,7 @@ class AlphaLinkGlobalUserManagementTest extends TestCase
 
     public function test_global_user_creation_rejects_invalid_username_type_and_roles_and_admin_can_open_directory_without_workspace(): void
     {
-        $admin = User::factory()->create(['type' => User::ADMIN, 'roles' => []]);
+        $admin = User::factory()->create(['type' => User::ADMIN, 'access_role' => User::ACCESS_ROLE_ADMIN, 'roles' => []]);
 
         $this->actingAs($admin)->postJson(route('console.global-users.store'), [
             'username' => 'invalid name',
@@ -123,13 +201,15 @@ class AlphaLinkGlobalUserManagementTest extends TestCase
     public function test_usernames_preserve_edited_spelling_and_remain_case_insensitively_unique(): void
     {
         $admin = User::factory()->create(['type' => User::ADMIN, 'roles' => []]);
-        $original = User::factory()->create(['username' => 'OriginalMailer']);
-        $other = User::factory()->create(['username' => 'OtherMailer']);
+        $original = User::factory()->create(['username' => 'OriginalMailer', 'access_role' => User::ACCESS_ROLE_OPERATOR]);
+        $other = User::factory()->create(['username' => 'OtherMailer', 'access_role' => User::ACCESS_ROLE_OPERATOR]);
 
         $this->actingAs($admin)->putJson(route('console.global-users.update', $original), [
             'username' => 'ORIGINALMAILER',
             'full_name' => 'Updated Original Mailer',
             'type' => User::MAILER,
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'permission_selection_submitted' => '1',
         ])->assertOk();
 
         $this->assertSame('ORIGINALMAILER', $original->fresh()->username);

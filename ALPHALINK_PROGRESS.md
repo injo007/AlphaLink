@@ -1,8 +1,14 @@
 # AlphaLink development progress
 
-**Updated:** 2026-11-27
-**Active objective:** Route Mailer sign-ins to an allowed Campaigns page — E-IAM-20.
-**Current implementation status:** `AuthController` sends Mailers with `campaigns.view` to `/mailer/campaigns`; Mailers without that permission go to their allowed PMTA My IPs page instead of an inaccessible dashboard. Other account types retain the dashboard destination. Synthetic route tests pass 3 / 11 assertions and the Profile/authentication suite passes 6 / 33; Pint and diff checks pass. Commit `2bfa25fcc8ac27fe1b48b4be5d31928bd806e6c5` is pushed to GitHub `master` and active on AlphaLink `baseheavy.shop`. The release backup `/var/backups/alphalink/deploy-2bfa25fcc8ac27fe1b48b4be5d31928bd806e6c5-20261127T223700Z.dump` passes `pg_restore --list`; PHP-FPM, Horizon, suppression, and scheduler services are active; the deployed `AuthController` hash matches local source; and server-local HTTPS `/up` returns 200. No production login or authenticated UI check occurred; keep ALPHALINK-IAM-001 IMPLEMENTING pending that UI verification.
+**Updated:** 2026-11-28
+**Active objective:** Fix Global User Accounts so newly created accounts can resolve a workspace after sign-in — E-IAM-21.
+**Current implementation status:** Global account creation now requires an active workspace the creator can access and links the new account inside the same transaction that assigns its global role. The credentials are returned only after both records persist. PHP 8.5.12 focused tests pass (8 tests / 89 assertions), covering workspace validation, both account types, and a synthetic Mailer sign-in to Campaigns; Pint passes. Existing unassigned accounts are not changed. Production login remains prohibited by the user's instruction, and this change has not yet been deployed. Keep ALPHALINK-IAM-001 IMPLEMENTING.
+
+### Global account workspace assignment — E-IAM-21 (2026-11-28)
+
+The reported 404 came from new Global User Accounts having no `workspace_user` association. `ResolveCurrentWorkspace` requires a resolvable workspace for regular users, so these accounts could authenticate but could not enter workspace-scoped routes. The Global User Accounts form now requires one active workspace available to its creator, defaults to the active/only workspace when possible, and saves the new user's workspace membership in the same transaction as role assignment before returning credentials. Inactive or inaccessible workspace IDs are rejected.
+
+PHP 8.5.12 `AlphaLinkGlobalUserManagementTest` passes 8 tests / 89 assertions, including both supported account types, persistence of membership, inactive-workspace rejection, and synthetic Mailer sign-in followed by a 200 Campaigns response. Pint and `git diff --check` pass. The adjacent clean-entry route suite has two unrelated stale `Main Dashboard` title assertions; no production login was attempted. Existing accounts created before this change remain unassigned until a manager attaches them through Workspace Access. Historical DMS behavior is UNKNOWN; keep ALPHALINK-IAM-001 IMPLEMENTING.
 
 ### Mailer PMTA access — E-IAM-19 (2026-11-27)
 

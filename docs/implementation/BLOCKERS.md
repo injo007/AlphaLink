@@ -2,6 +2,11 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+
+## 2026-11-28 Warmup row actions, Email Test addition, and Campaign register width — E-CAMP-179
+
+Warmup resend, one-time schedule, PMTA Admin navigation, and reversible archive/restore now have routes and UI actions. Scheduled and resent runs snapshot the latest saved revision; archive retains revisions/send history and rejects active runs. The Email Test plus button opens a save dialog, deduplicates per-user saved addresses, refreshes the list and appends the new address to the current composer. My Campaigns can hide its analytics/activity aside so the register expands. Synthetic PHP tests pass 9 / 152 with warning markers; Campaign composer Node tests pass 10/10; Pint, Blade cache, route registration and diff checks pass. No authenticated app check or real email send was performed. DMS resend and schedule behavior remains UNKNOWN; keep DMS-WARMUP-001 INVESTIGATING and this AlphaLink slice TESTING.
+
 ## 2026-11-28 Warmup save/send recovery and resumable Campaign/Warmup runs — E-CAMP-178
 
 The Warmup editor now handles duplicate save retries idempotently and returns genuine stale-edit conflicts to the editor with input preserved. Create & Send persists submitted values before queueing. Warmup and Campaign have explicit pause/resume operations on the same send run; auto-failover does not clear an operator pause, and in-flight attempts can record outcomes. Action controls are larger and responsive. Focused synthetic tests pass (4 tests / 57 assertions); broad adjacent files report four unrelated existing expectation failures. Pint, Blade compilation, `git diff --check`, and strict UI audit (0 findings) pass. Runtime commit `6cc5d87da4eb8cbcbe8bd65320a45dd4c15b815d` is active on AlphaLink; the backup is readable, `/up` returns 200, and required services are active. No app login or real send occurred. The feature remains TESTING; historic DMS parity is UNKNOWN.

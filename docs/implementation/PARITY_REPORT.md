@@ -2,6 +2,13 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+
+## Warmup row actions, Email Test addition, and Campaign register width — E-CAMP-179 (2026-11-28)
+
+AlphaLink now exposes Warmup resend after a completed run, one-time scheduling against the latest saved revision, PMTA Admin navigation scoped to the saved servers, and reversible archive/restore while retaining revisions and send history. Active runs cannot be archived; resend/schedule/archive/restore are restricted to owner/admin/operator workspace roles. Create & Send continues to persist the latest submitted settings before queueing and returns to My Warmups. The Email Test plus control opens a dialog, saves an address through the existing workspace-scoped per-user endpoint, deduplicates repeats, updates Saved Emails and appends to the active composer field. My Campaigns can hide/show Analytics and All Campaign Activity; the campaign register expands and the preference persists per workspace.
+
+Synthetic PHP regressions pass **9 tests / 152 assertions** (with PHPUnit warning markers), Campaign composer Node tests pass **10/10**, and PHP 8.5 Pint, Blade cache, route registration and `git diff --check` pass. Coverage includes saved revision/parameter snapshots, delayed schedule time, resend, retained archive history, permission and active-run validation, address deduplication and rendered controls. No authenticated AlphaLink UI check, PMTA operation, or real email send was performed. These are AlphaLink behavior fixes; DMS scheduler/resend semantics and live delivery remain UNKNOWN. Keep the feature TESTING and DMS-WARMUP-001 INVESTIGATING.
+
 ## Warmup save/send recovery, resumable sends, and action controls — E-CAMP-178 (2026-11-28)
 
 Warmup identical retries are resolved before revision-conflict checks, preventing browser retries from showing 409 after a successful save. Conflicting stale content redirects back to the composer with submitted values/errors preserved. Warmup draft-write requests use the dedicated per-actor/workspace limiter. The composer disables repeat form submissions while saving and restores its state on browser history return. Create & Send persists the latest submitted Warmup values before dispatching its send run.

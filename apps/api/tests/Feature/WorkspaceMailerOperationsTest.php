@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\PrepareAndStartDropSend;
 use App\Jobs\ProcessWarmupSendRun;
 use App\Models\AudienceList;
+use App\Models\AuditEvent;
 use App\Models\Campaign;
 use App\Models\CampaignEngagementEvent;
 use App\Models\CampaignRecipientSnapshot;
@@ -24,6 +25,7 @@ use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\SendRunPacing;
 use App\Services\Campaigns\WarmupSendMessageBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -55,6 +57,9 @@ class WorkspaceMailerOperationsTest extends TestCase
         $response->assertOk()->assertSee('name="route_option"', false)
             ->assertSee('<option value="domain"', false)->assertSee('DOMAIN')
             ->assertSee('TEST CURRENT WARMUP')->assertSee('CREATE &amp; SEND WARMUP', false)
+            ->assertSee('id="add-saved-email"', false)
+            ->assertSee('id="campaign-test-address-dialog"', false)
+            ->assertSee('data-store-url=', false)
             ->assertSee('Test uses the open Warmup form without saving first.');
     }
 
@@ -447,14 +452,144 @@ class WorkspaceMailerOperationsTest extends TestCase
         $campaign->load('latestRevision');
         $this->assertSame('<p>Current unsaved form version</p>', $campaign->latestRevision->payload['html_body']);
         $this->assertSame('delayps', $campaign->latestRevision->payload['send_type']);
+        $this->assertSame(2, $campaign->latestRevision->payload['total_send']);
+        $this->assertSame(2, $campaign->latestRevision->payload['fraction_ip']);
         $this->assertSame(1200, $campaign->latestRevision->payload['sleep_email']);
         $this->assertSame(2400, $campaign->latestRevision->payload['sleep_ip']);
+        $this->assertSame(8, $campaign->latestRevision->payload['seed_every']);
+        $this->assertSame(9, $campaign->latestRevision->payload['bounce_limit']);
         $run = WarmupSendRun::query()->where('campaign_id', $campaign->getKey())->firstOrFail();
         $this->assertSame($campaign->latestRevision->getKey(), $run->revision_id);
         $this->assertSame('delayps', $run->send_type);
+        $this->assertSame(2, $run->execution_options['total_send']);
+        $this->assertSame(2, $run->execution_options['fraction_ip']);
         $this->assertSame(1200, $run->execution_options['sleep_email_ms']);
         $this->assertSame(2400, $run->execution_options['sleep_ip_ms']);
+        $this->assertSame(8, $run->execution_options['seed_every']);
+        $this->assertSame(8, $run->execution_options['test_after']);
+        $this->assertSame(9, $run->execution_options['bounce_limit']);
         Queue::assertPushedOn('campaign-sends', ProcessWarmupSendRun::class, fn (ProcessWarmupSendRun $job): bool => $job->sendRunId === (string) $run->getKey());
+    }
+
+    public function test_warmup_schedule_queues_the_saved_revision_for_the_selected_time(): void
+    {
+        Queue::fake();
+        $fixture = $this->warmupActionFixture();
+        $catalog = \Mockery::mock(AlphaLinkCampaignSendCatalog::class);
+        $catalog->shouldReceive('validateRevisionRouting')->once()->andReturn([]);
+        $this->app->instance(AlphaLinkCampaignSendCatalog::class, $catalog);
+        $scheduledInput = now()->addMinutes(10)->startOfMinute()->format('Y-m-d\\TH:i');
+        $expectedSchedule = Carbon::createFromFormat('Y-m-d\\TH:i', $scheduledInput, config('app.timezone'));
+
+        $this->actingAs($fixture['owner'])->post(route('console.warmups.schedule', [$fixture['workspace']->getKey(), $fixture['campaign']->getKey()]), [
+            'idempotency_key' => (string) Str::uuid(),
+            'scheduled_at' => $scheduledInput,
+        ])->assertRedirect(route('clean.console.warmups.index'))->assertSessionHasNoErrors();
+
+        $run = WarmupSendRun::query()->where('campaign_id', $fixture['campaign']->getKey())->firstOrFail();
+        $this->assertSame('planned', $run->state);
+        $this->assertSame((string) $fixture['revision']->getKey(), (string) $run->revision_id);
+        $this->assertSame($expectedSchedule->toIso8601String(), $run->execution_options['scheduled_at']);
+        $this->assertSame('delay', $run->send_type);
+        $this->assertSame(300, $run->execution_options['sleep_email_ms']);
+        $this->assertSame(900, $run->execution_options['sleep_ip_ms']);
+        $this->assertSame(2, $run->recipient_count);
+        Queue::assertPushed(ProcessWarmupSendRun::class, fn (ProcessWarmupSendRun $job): bool => $job->sendRunId === (string) $run->getKey()
+            && $job->delay instanceof \DateTimeInterface
+            && $job->delay->getTimestamp() === $expectedSchedule->getTimestamp());
+    }
+
+    public function test_completed_warmup_can_be_resent_with_a_new_idempotent_run(): void
+    {
+        Queue::fake();
+        $fixture = $this->warmupActionFixture();
+        WarmupSendRun::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(), 'campaign_id' => $fixture['campaign']->getKey(), 'revision_id' => $fixture['revision']->getKey(),
+            'requested_by' => $fixture['owner']->getKey(), 'send_type' => 'delay', 'state' => 'completed',
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'completed warmup fixture'),
+            'recipient_count' => 2, 'next_position' => 3, 'accepted_count' => 2, 'completed_at' => now(), 'execution_options' => [],
+        ]);
+        $catalog = \Mockery::mock(AlphaLinkCampaignSendCatalog::class);
+        $catalog->shouldReceive('validateRevisionRouting')->once()->andReturn([]);
+        $this->app->instance(AlphaLinkCampaignSendCatalog::class, $catalog);
+
+        $this->actingAs($fixture['owner'])->post(route('console.warmups.resend', [$fixture['workspace']->getKey(), $fixture['campaign']->getKey()]), [
+            'idempotency_key' => (string) Str::uuid(),
+        ])->assertRedirect(route('clean.console.warmups.index'))->assertSessionHasNoErrors();
+
+        $runs = WarmupSendRun::query()->where('campaign_id', $fixture['campaign']->getKey())->orderBy('created_at')->get();
+        $this->assertCount(2, $runs);
+        $this->assertSame((string) $fixture['revision']->getKey(), (string) $runs->last()->revision_id);
+        $this->assertSame('planned', $runs->last()->state);
+        $this->assertSame(2, $runs->last()->recipient_count);
+        Queue::assertPushed(ProcessWarmupSendRun::class, fn (ProcessWarmupSendRun $job): bool => $job->sendRunId === (string) $runs->last()->getKey());
+    }
+
+    public function test_warmup_actions_follow_the_latest_revision_send_history(): void
+    {
+        $fixture = $this->warmupActionFixture();
+        $newRevision = CampaignRevision::query()->create([
+            'campaign_id' => $fixture['campaign']->getKey(), 'revision_number' => 2,
+            'payload' => $fixture['revision']->payload,
+            'content_sha256' => hash('sha256', 'updated warmup content'),
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'updated warmup request'),
+            'created_by' => $fixture['owner']->getKey(), 'created_at' => now()->addSecond(),
+        ]);
+        WarmupSendRun::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(), 'campaign_id' => $fixture['campaign']->getKey(), 'revision_id' => $fixture['revision']->getKey(),
+            'requested_by' => $fixture['owner']->getKey(), 'send_type' => 'delay', 'state' => 'completed',
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'previous revision completed fixture'),
+            'recipient_count' => 2, 'next_position' => 3, 'accepted_count' => 2, 'completed_at' => now(), 'execution_options' => [],
+        ]);
+
+        $response = $this->actingAs($fixture['owner'])->get(route('console.warmups.index', $fixture['workspace']->getKey()))->assertOk();
+        $response->assertSee('title="Queue Warmup send"', false)
+            ->assertSee('disabled title="Resend is available after a completed send"', false);
+        $this->assertSame(2, $newRevision->revision_number);
+    }
+
+    public function test_warmup_removal_retains_history_and_can_be_restored(): void
+    {
+        $fixture = $this->warmupActionFixture();
+        $indexUrl = route('console.warmups.index', $fixture['workspace']->getKey());
+        $index = $this->actingAs($fixture['owner'])->get($indexUrl)->assertOk()->assertSee('PMTA Admin for');
+        $this->assertStringContainsString((string) $fixture['serverId'], $index->getContent());
+        $this->get(route('console.pmta-admin.index', [$fixture['workspace']->getKey(), 'server_ids' => [$fixture['serverId']]]))
+            ->assertOk()->assertSee('Synthetic Warmup PMTA');
+
+        $this->post(route('console.warmups.archive', [$fixture['workspace']->getKey(), $fixture['campaign']->getKey()]))
+            ->assertRedirect(route('clean.console.warmups.index'))
+            ->assertSessionHas('status', 'Warmup removed from the active list. Its saved revisions and send history were retained.');
+        $this->assertDatabaseHas('campaigns', ['id' => $fixture['campaign']->getKey(), 'is_active' => false]);
+        $this->assertDatabaseHas('campaign_revisions', ['id' => $fixture['revision']->getKey()]);
+        $this->get($indexUrl)->assertOk()->assertDontSee('Reversible Warmup fixture');
+        $this->get($indexUrl.'?archived=1')->assertOk()->assertSee('Reversible Warmup fixture')->assertSee('Restore Warmup');
+
+        $this->post(route('console.warmups.restore', [$fixture['workspace']->getKey(), $fixture['campaign']->getKey()]))
+            ->assertRedirect(route('clean.console.warmups.index'))
+            ->assertSessionHas('status', 'Warmup restored to the active list.');
+        $this->assertDatabaseHas('campaigns', ['id' => $fixture['campaign']->getKey(), 'is_active' => true]);
+        $this->assertSame(2, AuditEvent::query()->where('subject_id', $fixture['campaign']->getKey())->count());
+    }
+
+    public function test_warmup_archive_rejects_active_sends_and_read_only_members(): void
+    {
+        $fixture = $this->warmupActionFixture();
+        $activeRun = WarmupSendRun::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(), 'campaign_id' => $fixture['campaign']->getKey(), 'revision_id' => $fixture['revision']->getKey(),
+            'requested_by' => $fixture['owner']->getKey(), 'send_type' => 'delay', 'state' => 'planned',
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'active warmup fixture'),
+            'recipient_count' => 2, 'next_position' => 1, 'execution_options' => [],
+        ]);
+        $archiveUrl = route('console.warmups.archive', [$fixture['workspace']->getKey(), $fixture['campaign']->getKey()]);
+        $this->actingAs($fixture['owner'])->post($archiveUrl)->assertConflict();
+        $this->assertDatabaseHas('campaigns', ['id' => $fixture['campaign']->getKey(), 'is_active' => true]);
+
+        $viewer = User::factory()->create();
+        $fixture['workspace']->users()->attach($viewer->getKey(), ['role' => 'viewer']);
+        $this->actingAs($viewer)->post($archiveUrl)->assertNotFound();
+        $this->assertSame('planned', $activeRun->fresh()->state);
+        $this->assertDatabaseHas('campaigns', ['id' => $fixture['campaign']->getKey(), 'is_active' => true]);
     }
 
     public function test_drop_send_queues_snapshot_preparation_instead_of_claiming_it_started(): void
@@ -722,6 +857,47 @@ class WorkspaceMailerOperationsTest extends TestCase
         $workspace->users()->attach($owner->getKey(), ['role' => $role]);
 
         return $workspace;
+    }
+
+    /** @return array{owner: User, workspace: Workspace, campaign: Campaign, revision: CampaignRevision, serverId: string} */
+    private function warmupActionFixture(): array
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $seedList = WorkspaceSeedList::query()->create([
+            'workspace_id' => $workspace->getKey(), 'user_id' => $owner->getKey(), 'name' => 'Action fixture seeds', 'is_active' => true,
+        ]);
+        $seedList->emails()->createMany([
+            ['email' => 'warmup-action-one@example.test'],
+            ['email' => 'warmup-action-two@example.test'],
+        ]);
+        $campaign = Campaign::query()->create([
+            'workspace_id' => $workspace->getKey(), 'created_by' => $owner->getKey(),
+            'name' => 'Reversible Warmup fixture', 'kind' => 'warmup', 'status' => 'draft', 'is_active' => true,
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $server = ManagedServer::query()->create([
+            'workspace_id' => $workspace->getKey(), 'name' => 'Synthetic Warmup PMTA',
+            'provider' => 'Fixture provider', 'ip_address' => '203.0.113.181',
+            'ssh_port' => 22, 'ssh_username' => 'root', 'state' => 'verified',
+            'is_active' => true, 'is_installed' => true,
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'warmup action server'),
+            'created_by' => $owner->getKey(),
+        ]);
+        $serverId = (string) $server->getKey();
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->getKey(), 'revision_number' => 1,
+            'payload' => [
+                'draft_type' => 'warmup', 'send_type' => 'delay', 'total_send' => 2,
+                'seed_list_ids' => [$seedList->getKey()], 'sleep_email' => 300, 'sleep_ip' => 900,
+                'send_setup' => ['route_option' => 'ip', 'ip_type' => 'ipv4', 'server_ids' => [$serverId], 'ip_ids' => ['10']],
+            ],
+            'content_sha256' => hash('sha256', 'reversible warmup content'),
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'reversible warmup request'),
+            'created_by' => $owner->getKey(), 'created_at' => now(),
+        ]);
+
+        return compact('owner', 'workspace', 'campaign', 'revision', 'serverId');
     }
 
     private function headerAddress(string $header, string $name): string

@@ -788,13 +788,19 @@ class WorkspaceConsoleController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
         $data = $request->validate(['email' => ['required', 'email:rfc', 'max:255']]);
-        $address = WorkspaceCampaignTestAddress::query()->create([
-            'workspace_id' => $workspace->getKey(), 'user_id' => $request->user()->getKey(),
-            'email' => mb_strtolower(trim($data['email'])),
+        $email = mb_strtolower(trim($data['email']));
+        $address = WorkspaceCampaignTestAddress::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('user_id', $request->user()->getKey())
+            ->get()
+            ->first(fn (WorkspaceCampaignTestAddress $savedAddress): bool => mb_strtolower($savedAddress->email) === $email);
+        $created = $address === null;
+        $address ??= WorkspaceCampaignTestAddress::query()->create([
+            'workspace_id' => $workspace->getKey(), 'user_id' => $request->user()->getKey(), 'email' => $email,
         ]);
 
         return $request->expectsJson()
-            ? response()->json(['data' => ['id' => $address->getKey(), 'email' => $address->email]], 201)
+            ? response()->json(['data' => ['id' => $address->getKey(), 'email' => $address->email]], $created ? 201 : 200)
             : back(303)->with('status', 'Test address saved.');
     }
 

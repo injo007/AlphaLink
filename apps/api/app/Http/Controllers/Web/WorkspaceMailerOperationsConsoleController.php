@@ -230,6 +230,7 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             'to' => ['sometimes', 'date_format:Y-m-d', 'before_or_equal:today', 'after_or_equal:from'],
             'q' => ['sometimes', 'nullable', 'string', 'max:160'],
             'per_page' => ['sometimes', 'integer', 'in:25,50,100'],
+            'archived' => ['sometimes', 'boolean'],
         ]);
         $from = Carbon::parse($filters['from'] ?? now()->subDays(30)->toDateString())->startOfDay();
         $to = Carbon::parse($filters['to'] ?? now()->toDateString())->endOfDay();
@@ -239,7 +240,7 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             ->where('created_by', $request->user()->getKey())
             ->where('kind', 'warmup')
             ->where('status', 'draft')
-            ->where('is_active', true)
+            ->where('is_active', ! (bool) ($filters['archived'] ?? false))
             ->whereBetween('created_at', [$from, $to])
             ->when(filled($filters['q'] ?? null), fn (Builder $query) => $query->where('name', 'like', '%'.str_replace(['%', '_'], ['\\%', '\\_'], $filters['q']).'%'))
             ->orderByDesc('id')
@@ -248,7 +249,12 @@ class WorkspaceMailerOperationsConsoleController extends Controller
         $pageRows = $drafts->getCollection();
         $payloads = $pageRows->mapWithKeys(fn (Campaign $campaign): array => [(string) $campaign->getKey() => (array) ($campaign->latestRevision?->payload ?? [])]);
         $serverIds = $payloads->flatMap(fn (array $payload): array => (array) ($payload['send_setup']['server_ids'] ?? []))->unique()->values();
-        $serverNames = ManagedServer::query()->where('workspace_id', $workspace->getKey())->whereIn('id', $serverIds)->pluck('name', 'id');
+        $serverNames = ManagedServer::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('is_active', true)
+            ->where('is_installed', true)
+            ->whereIn('id', $serverIds)
+            ->pluck('name', 'id');
         $seedListIds = $payloads->flatMap(fn (array $payload): array => (array) ($payload['seed_list_ids'] ?? []))->map(fn ($id): int => (int) $id)->unique()->values();
         $seedCounts = WorkspaceSeedList::query()->where('workspace_id', $workspace->getKey())->whereIn('id', $seedListIds)->withCount('emails')->get(['id'])->keyBy('id');
         $warmupRuns = WarmupSendRun::query()
@@ -258,19 +264,45 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             ->get()
             ->unique('campaign_id')
             ->keyBy(fn (WarmupSendRun $run): string => (string) $run->campaign_id);
+        $currentRevisionRuns = collect();
+        if ($pageRows->contains(fn (Campaign $draft): bool => $draft->latestRevision !== null)) {
+            $currentRevisionRuns = WarmupSendRun::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where(function (Builder $query) use ($pageRows): void {
+                    foreach ($pageRows as $draft) {
+                        if ($draft->latestRevision) {
+                            $query->orWhere(fn (Builder $pair) => $pair
+                                ->where('campaign_id', $draft->getKey())
+                                ->where('revision_id', $draft->latestRevision->getKey()));
+                        }
+                    }
+                })
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->get()
+                ->unique(fn (WarmupSendRun $run): string => (string) $run->campaign_id.'|'.(string) $run->revision_id)
+                ->keyBy(fn (WarmupSendRun $run): string => (string) $run->campaign_id.'|'.(string) $run->revision_id);
+        }
         $activeSends = WarmupSendRun::query()
             ->where('workspace_id', $workspace->getKey())
             ->whereIn('campaign_id', $workspace->campaigns()->where('created_by', $request->user()->getKey())->where('kind', 'warmup')->select('id'))
             ->whereIn('state', ['planned', 'running'])
             ->count();
-        $pageRows->each(function (Campaign $campaign) use ($payloads, $serverNames, $seedCounts, $warmupRuns): void {
+        $pageRows->each(function (Campaign $campaign) use ($payloads, $serverNames, $seedCounts, $warmupRuns, $currentRevisionRuns): void {
             $payload = $payloads->get((string) $campaign->getKey(), []);
             $setup = (array) ($payload['send_setup'] ?? []);
+            $revisionId = (string) ($campaign->latestRevision?->getKey() ?? '');
             $campaign->setAttribute('warmup_config', $payload);
             $campaign->setAttribute('warmup_servers', collect($setup['server_ids'] ?? [])->map(fn ($id): string => (string) ($serverNames->get($id) ?? 'Unknown server'))->values());
             $campaign->setAttribute('warmup_seed_count', collect($payload['seed_list_ids'] ?? [])->sum(fn ($id): int => (int) ($seedCounts->get((int) $id)?->emails_count ?? 0)));
             $campaign->setAttribute('warmup_seed_lists', count($payload['seed_list_ids'] ?? []));
             $campaign->setAttribute('warmup_send_run', $warmupRuns->get((string) $campaign->getKey()));
+            $campaign->setAttribute('warmup_current_revision_run', $currentRevisionRuns->get((string) $campaign->getKey().'|'.$revisionId));
+            $campaign->setAttribute('warmup_pmta_server_ids', collect($setup['server_ids'] ?? [])
+                ->map(fn ($id): string => (string) $id)
+                ->intersect($serverNames->keys()->map(fn ($id): string => (string) $id))
+                ->values()
+                ->all());
         });
 
         return view('console.warmups.index', [
@@ -280,6 +312,7 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             'to' => $to->toDateString(),
             'query' => (string) ($filters['q'] ?? ''),
             'perPage' => $perPage,
+            'showArchived' => (bool) ($filters['archived'] ?? false),
             'activeSends' => $activeSends,
             'createUrl' => route('console.warmups.create', $workspace->getKey()),
         ]);
@@ -328,6 +361,102 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             ->with('status', in_array($run->state, ['planned', 'running'], true)
                 ? 'Warmup send queued or already running. Progress is shown in the Warmups register.'
                 : 'Warmup send request saved. Review its latest state in the Warmups register.');
+    }
+
+    public function resendWarmup(Request $request, string $workspace, string $campaign, PrepareWarmupSendRun $sendRun): RedirectResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $this->authorizeWarmupOperation($workspace);
+        $data = $request->validate(['idempotency_key' => ['required', 'uuid']]);
+        $draft = $this->draftFor($request->user(), $workspace, $campaign, 'warmup');
+        abort_unless($this->hasCompletedWarmupRun($workspace, $draft), 409, 'Only a completed Warmup can be resent.');
+
+        $run = $sendRun->create($workspace, $draft, $request->user(), (string) $data['idempotency_key'], allowResend: true);
+
+        return redirect()->route('console.warmups.index', $workspace->getKey())
+            ->with('status', 'Warmup resend queued from the saved configuration. Progress is shown in My Warmups.');
+    }
+
+    public function scheduleWarmup(Request $request, string $workspace, string $campaign, PrepareWarmupSendRun $sendRun): RedirectResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $this->authorizeWarmupOperation($workspace);
+        $data = $request->validate([
+            'idempotency_key' => ['required', 'uuid'],
+            'scheduled_at' => ['required', 'date_format:Y-m-d\\TH:i', 'after:now'],
+        ]);
+        $draft = $this->draftFor($request->user(), $workspace, $campaign, 'warmup');
+        $scheduledAt = Carbon::createFromFormat('Y-m-d\\TH:i', (string) $data['scheduled_at'], config('app.timezone'));
+        $isResend = $this->hasCompletedWarmupRun($workspace, $draft);
+
+        $sendRun->create($workspace, $draft, $request->user(), (string) $data['idempotency_key'], allowResend: $isResend, scheduledAt: $scheduledAt);
+
+        return redirect()->route('console.warmups.index', $workspace->getKey())
+            ->with('status', 'Warmup scheduled with its saved configuration. The scheduled run is shown in My Warmups.');
+    }
+
+    public function archiveWarmup(Request $request, string $workspace, string $campaign): RedirectResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $this->authorizeWarmupOperation($workspace);
+        DB::transaction(function () use ($request, $workspace, $campaign): void {
+            $draft = $workspace->campaigns()
+                ->where('created_by', $request->user()->getKey())
+                ->where('kind', 'warmup')
+                ->where('is_active', true)
+                ->whereKey($campaign)
+                ->lockForUpdate()
+                ->firstOrFail();
+            abort_if(WarmupSendRun::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('campaign_id', $draft->getKey())
+                ->whereIn('state', ['planned', 'running', 'paused'])
+                ->exists(), 409, 'Stop the active Warmup send before removing this Warmup.');
+
+            $draft->forceFill(['is_active' => false])->save();
+            AuditEvent::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'actor_user_id' => $request->user()->getKey(),
+                'action' => 'warmup.archived',
+                'subject_type' => Campaign::class,
+                'subject_id' => $draft->getKey(),
+                'request_id' => $request->attributes->get('request_id'),
+                'properties' => ['from_active' => true, 'to_active' => false],
+                'occurred_at' => now(),
+            ]);
+        }, attempts: 3);
+
+        return redirect()->route('console.warmups.index', $workspace->getKey())
+            ->with('status', 'Warmup removed from the active list. Its saved revisions and send history were retained.');
+    }
+
+    public function restoreWarmup(Request $request, string $workspace, string $campaign): RedirectResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $this->authorizeWarmupOperation($workspace);
+        DB::transaction(function () use ($request, $workspace, $campaign): void {
+            $draft = $workspace->campaigns()
+                ->where('created_by', $request->user()->getKey())
+                ->where('kind', 'warmup')
+                ->where('is_active', false)
+                ->whereKey($campaign)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $draft->forceFill(['is_active' => true])->save();
+            AuditEvent::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'actor_user_id' => $request->user()->getKey(),
+                'action' => 'warmup.restored',
+                'subject_type' => Campaign::class,
+                'subject_id' => $draft->getKey(),
+                'request_id' => $request->attributes->get('request_id'),
+                'properties' => ['from_active' => false, 'to_active' => true],
+                'occurred_at' => now(),
+            ]);
+        }, attempts: 3);
+
+        return redirect()->route('console.warmups.index', $workspace->getKey())
+            ->with('status', 'Warmup restored to the active list.');
     }
 
     public function stopWarmup(Request $request, string $workspace, string $campaign, string $run): RedirectResponse
@@ -1057,6 +1186,30 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             ->where('is_active', true)
             ->whereKey($campaignId)
             ->firstOrFail();
+    }
+
+    private function hasCompletedWarmupRun(Workspace $workspace, Campaign $draft): bool
+    {
+        $revisionId = (string) $draft->latestRevision?->getKey();
+
+        if ($revisionId === '') {
+            return false;
+        }
+
+        $latestRun = WarmupSendRun::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('campaign_id', $draft->getKey())
+            ->where('revision_id', $revisionId)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+
+        return $latestRun?->state === 'completed';
+    }
+
+    private function authorizeWarmupOperation(Workspace $workspace): void
+    {
+        abort_unless(in_array((string) $workspace->pivot->role, ['owner', 'admin', 'operator'], true), 403);
     }
 
     private function workspaceFor(User $user, string $workspaceId): Workspace

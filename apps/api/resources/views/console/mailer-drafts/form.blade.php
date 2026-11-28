@@ -206,7 +206,7 @@
             @endif
             <div class="form-row {{ $isWarmup ? 'warmup-message-fields' : '' }}">
                 <div class="form-group col-sm-12 col-md-4"><label for="return_path">Return Path:</label><input id="return_path" name="return_path" type="text" class="form-control" maxlength="320" placeholder="Return Path" value="{{ old('return_path', $content['return_path'] ?? '[rnd]@[domain]') }}"></div>
-                <div class="form-group col-sm-12 col-md-4"><label for="saved-emails">Saved Emails:</label><div class="input-group"><select id="saved-emails" class="form-control selectpicker" multiple data-actions-box="true" data-live-search="true" data-selected-text-format="count > 1" data-size="5" title="Select Emails">@foreach ($savedEmails as $savedEmail)<option value="{{ $savedEmail->email }}" @selected(in_array($savedEmail->email, $selectedEmailTestAddresses, true))>{{ $savedEmail->email }}</option>@endforeach</select><div class="input-group-append"><button type="button" id="add-saved-email" class="btn btn-alt-primary" title="Add saved email to test addresses"><i class="fas fa-plus"></i></button></div></div></div>
+                <div class="form-group col-sm-12 col-md-4"><label for="saved-emails">Saved Emails:</label><div class="input-group"><select id="saved-emails" class="form-control selectpicker" multiple data-actions-box="true" data-live-search="true" data-selected-text-format="count > 1" data-size="5" title="Select Emails">@foreach ($savedEmails as $savedEmail)<option value="{{ $savedEmail->email }}" @selected(in_array($savedEmail->email, $selectedEmailTestAddresses, true))>{{ $savedEmail->email }}</option>@endforeach</select><div class="input-group-append"><button type="button" id="add-saved-email" class="btn btn-alt-primary" title="Add a saved or new email test address" aria-label="Add Email Test"><i class="fas fa-plus" aria-hidden="true"></i></button></div></div></div>
                 <div class="form-group col-sm-12 col-md-4"><label for="email-test-addresses">{{ $isDrop ? 'Emails Test' : 'Email Test' }}:</label><textarea id="email-test-addresses" name="email_test_addresses_text" rows="1" class="form-control" placeholder="Email Test">{{ $emailTestText }}</textarea></div>
             </div>
             @if ($isWarmup)
@@ -485,6 +485,15 @@
     </div>
 </div>
 @endif
+<dialog id="campaign-test-address-dialog" class="mailer-test-address-dialog" aria-labelledby="campaign-test-address-title" data-store-url="{{ route('console.campaign-test-addresses.store', $workspace->getKey()) }}">
+    <form id="campaign-test-address-form" method="dialog">
+        <header><div><h2 id="campaign-test-address-title">Add Email Test</h2><p>Save this address to your personal test list and add it to the current draft.</p></div><button type="button" data-test-address-close aria-label="Close dialog"><i class="fas fa-times" aria-hidden="true"></i></button></header>
+        <label for="campaign-test-address-email">Email address</label>
+        <input id="campaign-test-address-email" type="email" class="form-control" maxlength="255" autocomplete="email" required>
+        <p id="campaign-test-address-error" class="mailer-test-address-error" role="alert" hidden></p>
+        <footer><button type="button" class="btn btn-alt-secondary" data-test-address-close>Cancel</button><button id="campaign-test-address-save" type="submit" class="btn btn-primary"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Add Email Test</button></footer>
+    </form>
+</dialog>
 @endsection
 
 @push('styles')
@@ -500,6 +509,17 @@
     .mailer-ip-selector-actions { align-items: center; display: flex; flex-direction: column; gap: .35rem; justify-content: center; padding-bottom: .35rem; }
     .mailer-ip-selector-actions .btn { min-width: 2.7rem; }
     .warmup-composer-shell { --warmup-ink: var(--co-ink); --warmup-muted: var(--co-muted); --warmup-border: var(--co-border); --warmup-purple: var(--co-purple); --warmup-purple-bright: var(--co-purple-bright); color: var(--warmup-ink); min-width: 0; }
+    .mailer-test-address-dialog { width: min(430px, calc(100vw - 24px)); padding: 0; border: 1px solid var(--co-border); border-radius: 15px; color: var(--co-ink); background: var(--co-surface); box-shadow: 0 24px 80px rgba(22, 19, 48, .3); }
+    .mailer-test-address-dialog::backdrop { background: rgba(17, 19, 35, .58); backdrop-filter: blur(2px); }
+    .mailer-test-address-dialog form { display: grid; gap: 10px; padding: 17px; }
+    .mailer-test-address-dialog header, .mailer-test-address-dialog footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .mailer-test-address-dialog header { padding-bottom: 10px; border-bottom: 1px solid var(--co-border); }
+    .mailer-test-address-dialog h2 { margin: 0; color: var(--co-ink); font-size: 17px; }
+    .mailer-test-address-dialog p { margin: 3px 0 0; color: var(--co-muted); font-size: 11px; }
+    .mailer-test-address-dialog label { color: var(--co-ink); font-size: 11px; font-weight: 750; }
+    .mailer-test-address-dialog [data-test-address-close] { border: 0; color: var(--co-muted); background: transparent; }
+    .mailer-test-address-dialog footer { justify-content: flex-end; margin-top: 5px; }
+    .mailer-test-address-dialog .mailer-test-address-error { color: #c43852; }
 
     /* Modern Floating Actions to match Campaigns */
     .quick-nav {
@@ -1596,7 +1616,57 @@
     const savedEmailSelect = byId('saved-emails');
     savedEmailSelect?.addEventListener('change', appendSelectedSavedEmails);
     if (window.jQuery && savedEmailSelect) window.jQuery(savedEmailSelect).on('changed.bs.select', appendSelectedSavedEmails);
-    byId('add-saved-email')?.addEventListener('click', appendSelectedSavedEmails);
+    byId('add-saved-email')?.addEventListener('click', () => {
+        const dialog = byId('campaign-test-address-dialog');
+        const addressInput = byId('campaign-test-address-email');
+        const currentAddress = (byId('email-test-addresses')?.value || '').split(/[\r\n,;]+/).map(value => value.trim()).find(value => value.includes('@')) || '';
+        if (addressInput) addressInput.value = currentAddress;
+        const error = byId('campaign-test-address-error');
+        if (error) { error.hidden = true; error.textContent = ''; }
+        dialog?.showModal();
+        addressInput?.focus();
+    });
+    const testAddressDialog = byId('campaign-test-address-dialog');
+    const testAddressForm = byId('campaign-test-address-form');
+    testAddressDialog?.querySelectorAll('[data-test-address-close]').forEach(button => button.addEventListener('click', () => testAddressDialog.close()));
+    testAddressForm?.addEventListener('submit', async event => {
+        event.preventDefault();
+        const email = (byId('campaign-test-address-email')?.value || '').trim().toLowerCase();
+        const error = byId('campaign-test-address-error');
+        const submitButton = byId('campaign-test-address-save');
+        if (error) { error.hidden = true; error.textContent = ''; }
+        if (!email) return;
+        if (submitButton) { submitButton.disabled = true; submitButton.setAttribute('aria-busy', 'true'); }
+        try {
+            const csrfToken = form.querySelector('[name="_token"]')?.value || '';
+            const response = await fetch(testAddressDialog.dataset.storeUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ email }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.errors?.email?.[0] || result.message || 'The Email Test address could not be saved.');
+            const savedEmail = result.data.email;
+            const existingOption = Array.from(savedEmailSelect?.options || []).find(option => option.value.toLowerCase() === savedEmail.toLowerCase());
+            const option = existingOption || new Option(savedEmail, savedEmail, true, true);
+            if (!existingOption) savedEmailSelect?.add(option);
+            option.selected = true;
+            if (window.jQuery?.fn?.selectpicker && savedEmailSelect) {
+                window.jQuery(savedEmailSelect).selectpicker('refresh');
+                window.jQuery(savedEmailSelect).selectpicker('val', multiValues(savedEmailSelect));
+            }
+            const textarea = byId('email-test-addresses');
+            const current = new Set((textarea?.value || '').split(/[\r\n,;]+/).map(value => value.trim().toLowerCase()).filter(Boolean));
+            if (textarea && !current.has(savedEmail.toLowerCase())) textarea.value += `${textarea.value.trim() ? '\n' : ''}${savedEmail}`;
+            testAddressDialog.close();
+            byId('campaign-test-address-email').value = '';
+        } catch (requestError) {
+            if (error) { error.textContent = requestError.message || 'The Email Test address could not be saved.'; error.hidden = false; }
+        } finally {
+            if (submitButton) { submitButton.disabled = false; submitButton.removeAttribute('aria-busy'); }
+        }
+    });
     byId('mailer-header-shuffle')?.addEventListener('click', () => {
         const header = byId('mailer-header');
         const lines = readEditor(headerEditor, header).split(/\r?\n/);

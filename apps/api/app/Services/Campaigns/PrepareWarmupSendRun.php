@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\WarmupSendRun;
 use App\Models\Workspace;
 use App\Models\WorkspaceSeedEmail;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -18,7 +19,7 @@ class PrepareWarmupSendRun
 {
     public function __construct(private readonly AlphaLinkCampaignSendCatalog $catalog) {}
 
-    public function create(Workspace $workspace, Campaign $campaign, User $actor, string $idempotencyKey): WarmupSendRun
+    public function create(Workspace $workspace, Campaign $campaign, User $actor, string $idempotencyKey, bool $allowResend = false, ?Carbon $scheduledAt = null): WarmupSendRun
     {
         $campaign->loadMissing('latestRevision');
         $revision = $campaign->latestRevision;
@@ -113,9 +114,10 @@ class PrepareWarmupSendRun
             'send_type' => $sendType,
             'seed_list_ids' => $seedListIds,
             'recipient_hashes' => array_column($recipients, 'hash'),
+            'scheduled_at' => $scheduledAt?->toIso8601String(),
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
-        [$run, $created] = DB::transaction(function () use ($workspace, $campaign, $actor, $revision, $idempotencyKey, $fingerprint, $sendType, $recipients, $payload): array {
+        [$run, $created] = DB::transaction(function () use ($workspace, $campaign, $actor, $revision, $idempotencyKey, $fingerprint, $sendType, $recipients, $payload, $scheduledAt, $allowResend): array {
             Campaign::query()->where('workspace_id', $workspace->getKey())->whereKey($campaign->getKey())->lockForUpdate()->firstOrFail();
             $activeRun = WarmupSendRun::query()
                 ->where('workspace_id', $workspace->getKey())
@@ -128,26 +130,50 @@ class PrepareWarmupSendRun
                 return [$activeRun, false];
             }
 
-            abort_if(WarmupSendRun::query()
-                ->where('workspace_id', $workspace->getKey())
-                ->where('campaign_id', $campaign->getKey())
-                ->where('revision_id', $revision->getKey())
-                ->where(function ($query): void {
-                    $query->whereIn('state', ['completed', 'stopped', 'needs_review'])
-                        ->orWhere(function ($failed): void {
-                            $failed->where('state', 'failed')
-                                ->where(function ($progress): void {
-                                    $progress->where('accepted_count', '>', 0)->orWhere('uncertain_count', '>', 0);
-                                });
-                        });
-                })
-                ->exists(), 409, 'This Warmup revision already has send history. Save a new revision before sending again.');
+            if ($allowResend) {
+                abort_unless(WarmupSendRun::query()
+                    ->where('workspace_id', $workspace->getKey())
+                    ->where('campaign_id', $campaign->getKey())
+                    ->where('revision_id', $revision->getKey())
+                    ->where('state', 'completed')
+                    ->exists(), 409, 'Only a completed Warmup send can be resent or rescheduled.');
+            } else {
+                abort_if(WarmupSendRun::query()
+                    ->where('workspace_id', $workspace->getKey())
+                    ->where('campaign_id', $campaign->getKey())
+                    ->where('revision_id', $revision->getKey())
+                    ->where(function ($query): void {
+                        $query->whereIn('state', ['completed', 'stopped', 'needs_review'])
+                            ->orWhere(function ($failed): void {
+                                $failed->where('state', 'failed')
+                                    ->where(function ($progress): void {
+                                        $progress->where('accepted_count', '>', 0)->orWhere('uncertain_count', '>', 0);
+                                    });
+                            });
+                    })
+                    ->exists(), 409, 'This Warmup revision already has send history. Save a new revision before sending again.');
+            }
 
             $existing = WarmupSendRun::query()->where('workspace_id', $workspace->getKey())->where('idempotency_key', $idempotencyKey)->first();
             if ($existing) {
                 abort_unless(hash_equals((string) $existing->request_fingerprint, $fingerprint), 409, 'This send key was already used with different Warmup data.');
 
                 return [$existing, false];
+            }
+
+            $executionOptions = [
+                'start_from' => (int) ($payload['start_from'] ?? 0),
+                'send_type' => $sendType,
+                'total_send' => count($recipients),
+                'sleep_email_ms' => max(0, (int) ($payload['sleep_email'] ?? 0)),
+                'sleep_ip_ms' => max(0, (int) ($payload['sleep_ip'] ?? 0)),
+                'fraction_ip' => max(1, (int) ($payload['fraction_ip'] ?? 1)),
+                'test_after' => max(0, (int) ($payload['test_after'] ?? $payload['seed_every'] ?? 0)),
+                'seed_every' => max(0, (int) ($payload['seed_every'] ?? 0)),
+                'bounce_limit' => max(0, (int) ($payload['bounce_limit'] ?? 0)),
+            ];
+            if ($scheduledAt !== null) {
+                $executionOptions['scheduled_at'] = $scheduledAt->toIso8601String();
             }
 
             $run = WarmupSendRun::query()->create([
@@ -160,17 +186,7 @@ class PrepareWarmupSendRun
                 'state' => 'planned',
                 'idempotency_key' => $idempotencyKey,
                 'request_fingerprint' => $fingerprint,
-                'execution_options' => [
-                    'start_from' => (int) ($payload['start_from'] ?? 0),
-                    'send_type' => $sendType,
-                    'total_send' => count($recipients),
-                    'sleep_email_ms' => max(0, (int) ($payload['sleep_email'] ?? 0)),
-                    'sleep_ip_ms' => max(0, (int) ($payload['sleep_ip'] ?? 0)),
-                    'fraction_ip' => max(1, (int) ($payload['fraction_ip'] ?? 1)),
-                    'test_after' => max(0, (int) ($payload['test_after'] ?? $payload['seed_every'] ?? 0)),
-                    'seed_every' => max(0, (int) ($payload['seed_every'] ?? 0)),
-                    'bounce_limit' => max(0, (int) ($payload['bounce_limit'] ?? 0)),
-                ],
+                'execution_options' => $executionOptions,
                 'recipient_count' => count($recipients),
                 'next_position' => 1,
             ]);
@@ -211,7 +227,11 @@ class PrepareWarmupSendRun
         }, attempts: 3);
 
         if ($created) {
-            ProcessWarmupSendRun::dispatch((string) $run->getKey())->onQueue('campaign-sends')->afterCommit();
+            $job = ProcessWarmupSendRun::dispatch((string) $run->getKey())->onQueue('campaign-sends');
+            if ($scheduledAt !== null) {
+                $job->delay($scheduledAt);
+            }
+            $job->afterCommit();
         }
 
         return $run;

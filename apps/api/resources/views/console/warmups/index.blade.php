@@ -88,6 +88,9 @@
                             @if ($query !== '')
                                 <input type="hidden" name="q" value="{{ $query }}">
                             @endif
+                            @if ($showArchived)
+                                <input type="hidden" name="archived" value="1">
+                            @endif
                             <label class="sr-only" for="warmup-per-page">Rows per page</label>
                             <select id="warmup-per-page" name="per_page" class="form-control form-control-sm" onchange="this.form.submit()" aria-label="Show warmup rows">
                                 @foreach ([25, 50, 100] as $pageSize)
@@ -102,7 +105,7 @@
                         <a class="btn btn-sm btn-alt-secondary campaign-register-icon-action" href="{{ request()->fullUrl() }}" title="Reload warmup register" aria-label="Reload warmup register"><i class="fas fa-sync-alt" aria-hidden="true"></i></a>
                     </div>
                     <form id="warmup-filter-form" method="GET" action="{{ route('console.warmups.index', $workspace->id) }}" class="form-inline mb-2 campaign-register-filters warmup-register-filters" aria-label="Filter warmups" data-analytics-date-range-form data-storage-key="warmups" data-min-date="none" novalidate>
-                        <input type="hidden" name="per_page" value="{{ $perPage }}">
+                            <input type="hidden" name="per_page" value="{{ $perPage }}">
                         <div class="form-group mr-2 mb-0">
                             <label for="analytics-dates" class="sr-only">Date range</label>
                             <div class="input-group input-group-sm">
@@ -118,6 +121,10 @@
                             <label class="sr-only" for="warmup-search">Search warmups</label>
                             <input class="form-control form-control-sm" type="search" id="warmup-search" name="q" value="{{ $query }}" placeholder="Search warmups...">
                         </div>
+                        <label class="warmup-archive-filter mb-0" for="warmup-show-archived">
+                            <input id="warmup-show-archived" type="checkbox" name="archived" value="1" @checked($showArchived) onchange="this.form.submit()">
+                            <span>Show archived</span>
+                        </label>
                         <button class="btn btn-sm btn-alt-primary" type="submit" aria-label="Search warmups"><i class="fas fa-search" aria-hidden="true"></i></button>
                     </form>
                 </div>
@@ -149,11 +156,16 @@
                         <tbody>
                         @forelse ($drafts as $draft)
                             @php($config = $draft->warmup_config ?? [])
+                            @php($pmtaAdminParameters = $draft->warmup_pmta_server_ids ? ['server_ids' => $draft->warmup_pmta_server_ids] : [])
                             @php($sendRun = $draft->warmup_send_run)
+                            @php($currentRevisionRun = $draft->warmup_current_revision_run)
                             @php($processed = $sendRun ? (int) $sendRun->accepted_count + (int) $sendRun->rejected_count + (int) $sendRun->uncertain_count : 0)
                             @php($recipientCount = (int) ($sendRun->recipient_count ?? 0))
                             @php($progressPercent = $recipientCount > 0 ? min(100, (int) floor($processed * 100 / $recipientCount)) : 0)
-                            @php($runState = $sendRun ? $sendRun->state : 'draft')
+                            @php($runState = ! $draft->is_active ? 'archived' : ($sendRun ? $sendRun->state : 'draft'))
+                            @php($hasActiveRun = $sendRun && in_array($sendRun->state, ['planned', 'running', 'paused'], true))
+                            @php($hasCompletedRun = $currentRevisionRun && $currentRevisionRun->state === 'completed')
+                            @php($canStartRun = ! $hasActiveRun && (! $currentRevisionRun || ($currentRevisionRun->state === 'failed' && (int) $currentRevisionRun->accepted_count === 0 && (int) $currentRevisionRun->uncertain_count === 0)))
                             <tr data-warmup-row data-warmup-id="{{ $draft->id }}">
                                 <th scope="row" data-label="ID">
                                     @if ($canOperateWarmups)
@@ -194,6 +206,9 @@
                                         <div class="warmup-register-progress-track" role="progressbar" aria-label="Warmup send progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $progressPercent }}" aria-valuetext="{{ number_format($processed) }} of {{ number_format($recipientCount) }} recipients processed">
                                             <span style="width: {{ $progressPercent }}%"></span>
                                         </div>
+                                        @if (! empty($sendRun->execution_options['scheduled_at']) && $sendRun->state === 'planned')
+                                            <small><i class="fas fa-calendar-alt mr-1" aria-hidden="true"></i>Scheduled {{ \Illuminate\Support\Carbon::parse($sendRun->execution_options['scheduled_at'])->timezone(config('app.timezone'))->format('Y-m-d H:i T') }}</small>
+                                        @endif
                                         <small>Accepted {{ number_format((int) $sendRun->accepted_count) }} · rejected {{ number_format((int) $sendRun->rejected_count) }} · uncertain {{ number_format((int) $sendRun->uncertain_count) }}</small>
                                     @else
                                         <span class="badge badge-secondary"><i class="fas fa-clock mr-1"></i>No send run yet</span>
@@ -204,9 +219,11 @@
                                 <td data-label="Actions" class="text-nowrap warmup-register-actions">
                                     <div class="campaign-register-row-actions warmup-register-row-actions">
                                         <button class="campaign-register-icon-action" type="button" data-warmup-analytics-trigger="{{ $draft->id }}" aria-controls="warmup-analytics-panel" title="View Warmup analytics" aria-label="View analytics for {{ $draft->name }}"><i class="fas fa-chart-line" aria-hidden="true"></i></button>
-                                        <a class="campaign-register-icon-action" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Edit Warmup" aria-label="Edit Warmup"><i class="fas fa-edit" aria-hidden="true"></i></a>
-                                        <a class="campaign-register-icon-action warmup-action-test" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Open Warmup composer to test" aria-label="Test Warmup"><i class="fas fa-paper-plane" aria-hidden="true"></i></a>
-                                        @if ($sendRun && in_array($sendRun->state, ['planned', 'running'], true))
+                                        @if ($draft->is_active)
+                                            <a class="campaign-register-icon-action" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Edit Warmup" aria-label="Edit Warmup"><i class="fas fa-edit" aria-hidden="true"></i></a>
+                                            <a class="campaign-register-icon-action warmup-action-test" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Open Warmup composer to test" aria-label="Test Warmup"><i class="fas fa-paper-plane" aria-hidden="true"></i></a>
+                                        @endif
+                                        @if ($draft->is_active && $sendRun && in_array($sendRun->state, ['planned', 'running'], true))
                                             <form method="post" action="{{ route('console.warmups.send-pause', [$workspace->id, $draft->id, $sendRun->id]) }}" class="d-inline">
                                                 @csrf
                                                 <button class="campaign-register-icon-action" type="submit" title="Pause Warmup send" aria-label="Pause Warmup send"><i class="fas fa-pause" aria-hidden="true"></i></button>
@@ -215,7 +232,7 @@
                                                 @csrf
                                                 <button class="campaign-register-icon-action campaign-register-icon-action-danger" type="submit" title="Stop Warmup send" aria-label="Stop Warmup send"><i class="fas fa-stop" aria-hidden="true"></i></button>
                                             </form>
-                                        @elseif ($sendRun && $sendRun->state === 'paused')
+                                        @elseif ($draft->is_active && $sendRun && $sendRun->state === 'paused')
                                             <form method="post" action="{{ route('console.warmups.send-resume', [$workspace->id, $draft->id, $sendRun->id]) }}" class="d-inline">
                                                 @csrf
                                                 <button class="campaign-register-icon-action campaign-register-icon-action-success" type="submit" title="Resume Warmup send" aria-label="Resume Warmup send"><i class="fas fa-play" aria-hidden="true"></i></button>
@@ -224,17 +241,41 @@
                                                 @csrf
                                                 <button class="campaign-register-icon-action campaign-register-icon-action-danger" type="submit" title="Stop Warmup send" aria-label="Stop Warmup send"><i class="fas fa-stop" aria-hidden="true"></i></button>
                                             </form>
-                                        @else
+                                        @elseif ($draft->is_active && $canStartRun)
                                             <form method="post" action="{{ route('console.warmups.send', [$workspace->id, $draft->id]) }}" class="d-inline">
                                                 @csrf
                                                 <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
                                                 <button class="campaign-register-icon-action campaign-register-icon-action-success" type="submit" title="Queue Warmup send" aria-label="Send Warmup"><i class="fas fa-play" aria-hidden="true"></i></button>
                                             </form>
+                                        @elseif ($draft->is_active)
+                                            <button class="campaign-register-icon-action campaign-register-icon-action-success" type="button" disabled title="Save a new Warmup revision before starting another run" aria-label="Save a new revision before sending again"><i class="fas fa-play" aria-hidden="true"></i></button>
                                         @endif
-                                        <button class="campaign-register-icon-action" type="button" disabled title="Resend requires a completed send" aria-label="Resend unavailable"><i class="fas fa-redo" aria-hidden="true"></i></button>
-                                        <button class="campaign-register-icon-action" type="button" disabled title="Warmup schedule is not connected" aria-label="Warmup schedule unavailable"><i class="fas fa-calendar-alt" aria-hidden="true"></i></button>
-                                        <button class="campaign-register-icon-action" type="button" disabled title="No Warmup server process is attached" aria-label="Warmup PMTA unavailable"><i class="fas fa-server" aria-hidden="true"></i></button>
-                                        <button class="campaign-register-icon-action campaign-register-icon-action-danger" type="button" disabled title="Warmup removal is not connected" aria-label="Warmup removal unavailable"><i class="fas fa-trash-alt" aria-hidden="true"></i></button>
+                                        @if ($draft->is_active && $hasCompletedRun)
+                                            <form method="post" action="{{ route('console.warmups.resend', [$workspace->id, $draft->id]) }}" class="d-inline" data-warmup-confirm="Resend {{ $draft->name }} using the saved settings and seed list?">
+                                                @csrf
+                                                <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+                                                <button class="campaign-register-icon-action" type="submit" title="Resend completed Warmup" aria-label="Resend {{ $draft->name }}"><i class="fas fa-redo" aria-hidden="true"></i></button>
+                                            </form>
+                                        @else
+                                            <button class="campaign-register-icon-action" type="button" disabled title="Resend is available after a completed send" aria-label="Resend unavailable"><i class="fas fa-redo" aria-hidden="true"></i></button>
+                                        @endif
+                                        @if ($draft->is_active && ! $hasActiveRun && ($canStartRun || $hasCompletedRun))
+                                            <button class="campaign-register-icon-action" type="button" data-warmup-schedule-trigger data-schedule-url="{{ route('console.warmups.schedule', [$workspace->id, $draft->id]) }}" data-warmup-name="{{ $draft->name }}" title="Schedule Warmup" aria-label="Schedule {{ $draft->name }}"><i class="fas fa-calendar-alt" aria-hidden="true"></i></button>
+                                        @else
+                                            <button class="campaign-register-icon-action" type="button" disabled title="Stop the active Warmup before scheduling another run" aria-label="Schedule unavailable"><i class="fas fa-calendar-alt" aria-hidden="true"></i></button>
+                                        @endif
+                                        <a class="campaign-register-icon-action" href="{{ route('console.pmta-admin.index', array_merge([$workspace->id], $pmtaAdminParameters)) }}" target="_blank" rel="noopener noreferrer" title="Open PMTA Admin for this Warmup's available servers" aria-label="PMTA Admin for {{ $draft->name }}"><i class="fas fa-server" aria-hidden="true"></i></a>
+                                        @if ($draft->is_active)
+                                            <form method="post" action="{{ route('console.warmups.archive', [$workspace->id, $draft->id]) }}" class="d-inline" data-warmup-confirm="Remove {{ $draft->name }} from the active Warmups list? Its revisions and send history will be retained.">
+                                                @csrf
+                                                <button class="campaign-register-icon-action campaign-register-icon-action-danger" type="submit" @disabled($hasActiveRun) title="{{ $hasActiveRun ? 'Stop the active send before removing this Warmup' : 'Remove Warmup while retaining its history' }}" aria-label="Remove {{ $draft->name }}"><i class="fas fa-trash-alt" aria-hidden="true"></i></button>
+                                            </form>
+                                        @else
+                                            <form method="post" action="{{ route('console.warmups.restore', [$workspace->id, $draft->id]) }}" class="d-inline">
+                                                @csrf
+                                                <button class="campaign-register-icon-action campaign-register-icon-action-success" type="submit" title="Restore Warmup" aria-label="Restore {{ $draft->name }}"><i class="fas fa-undo" aria-hidden="true"></i></button>
+                                            </form>
+                                        @endif
                                     </div>
                                 </td>
                                 @endif
@@ -261,6 +302,18 @@
                     {{ $drafts->links() }}
                 </div>
         </main>
+
+            <dialog id="warmup-schedule-dialog" class="warmup-schedule-dialog" aria-labelledby="warmup-schedule-title">
+                <form id="warmup-schedule-form" method="post">
+                    @csrf
+                    <input id="warmup-schedule-idempotency-key" type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+                    <header><div><h2 id="warmup-schedule-title">Schedule Warmup</h2><p data-warmup-schedule-name>Saved Warmup settings will be used.</p></div><button type="button" data-warmup-schedule-close aria-label="Close schedule dialog"><i class="fas fa-times" aria-hidden="true"></i></button></header>
+                    <label for="warmup-scheduled-at">Start date and time</label>
+                    <input id="warmup-scheduled-at" class="form-control" type="datetime-local" name="scheduled_at" required>
+                    <small>The time uses your AlphaLink server timezone. The run stays cancelable from My Warmups until it starts.</small>
+                    <footer><button class="btn btn-alt-secondary" type="button" data-warmup-schedule-close>Cancel</button><button class="btn btn-primary" type="submit"><i class="fas fa-calendar-check mr-1" aria-hidden="true"></i>Schedule Warmup</button></footer>
+                </form>
+            </dialog>
 
             <aside id="warmup-analytics-panel" class="campaign-intelligence warmup-analytics-panel" aria-label="Warmup analytics" hidden>
                 <section class="campaign-intelligence-card campaign-analytics-card">
@@ -440,6 +493,19 @@
         .warmup-register-row-actions .warmup-action-test { color: #0284c7; background: linear-gradient(145deg, rgba(2, 132, 199, 0.12), rgba(2, 132, 199, 0.06)); border-color: rgba(2, 132, 199, 0.3); }
         .warmup-register-row-actions .campaign-register-icon-action-success { color: #10b981; background: linear-gradient(145deg, rgba(16, 185, 129, 0.14), rgba(16, 185, 129, 0.06)); border-color: rgba(16, 185, 129, 0.35); }
         .warmup-register-row-actions .campaign-register-icon-action-danger { color: #ef4444; background: linear-gradient(145deg, rgba(239, 68, 68, 0.14), rgba(239, 68, 68, 0.06)); border-color: rgba(239, 68, 68, 0.35); }
+        .warmup-archive-filter { display: inline-flex; align-items: center; gap: 6px; color: var(--co-muted); font-size: 10px; font-weight: 700; white-space: nowrap; }
+        .warmup-archive-filter input { accent-color: var(--co-purple); }
+        .warmup-schedule-dialog { width: min(440px, calc(100vw - 24px)); padding: 0; border: 1px solid var(--co-border-strong); border-radius: 16px; color: var(--co-ink); background: var(--co-surface); box-shadow: 0 24px 80px rgba(22, 19, 48, .3); }
+        .warmup-schedule-dialog::backdrop { background: rgba(17, 19, 35, .58); backdrop-filter: blur(2px); }
+        .warmup-schedule-dialog form { display: grid; gap: 10px; padding: 18px; }
+        .warmup-schedule-dialog header, .warmup-schedule-dialog footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .warmup-schedule-dialog header { padding-bottom: 10px; border-bottom: 1px solid var(--co-border); }
+        .warmup-schedule-dialog h2 { margin: 0; color: var(--co-ink); font-size: 17px; }
+        .warmup-schedule-dialog p, .warmup-schedule-dialog small { margin: 3px 0 0; color: var(--co-muted); font-size: 11px; }
+        .warmup-schedule-dialog label { color: var(--co-ink); font-size: 11px; font-weight: 750; }
+        .warmup-schedule-dialog [data-warmup-schedule-close] { border: 0; color: var(--co-muted); background: transparent; }
+        .warmup-schedule-dialog footer { justify-content: flex-end; margin-top: 7px; }
+        .warmup-status-archived { color: #68738e; background: rgba(104, 115, 142, .12); }
 
         .warmup-register-footer { gap: 10px; padding-top: 12px; color: var(--co-muted); }
         .warmup-register-scroll-hint { align-items: center; display: inline-flex; gap: 6px; color: var(--co-muted); font-size: 9px; }
@@ -479,6 +545,36 @@
     <script src="{{ asset('console-assets/analytics-date-range.js') }}?v={{ substr(sha1_file(public_path('console-assets/analytics-date-range.js')), 0, 12) }}" defer></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const scheduleDialog = document.getElementById('warmup-schedule-dialog');
+            const scheduleForm = document.getElementById('warmup-schedule-form');
+            const scheduleInput = document.getElementById('warmup-scheduled-at');
+            const scheduleKey = document.getElementById('warmup-schedule-idempotency-key');
+            document.querySelectorAll('[data-warmup-schedule-trigger]').forEach(button => {
+                button.addEventListener('click', () => {
+                    if (!scheduleDialog || !scheduleForm || !scheduleInput) return;
+                    scheduleForm.action = button.dataset.scheduleUrl;
+                    scheduleInput.value = '';
+                    if (scheduleKey && window.crypto?.randomUUID) scheduleKey.value = window.crypto.randomUUID();
+                    const label = scheduleDialog.querySelector('[data-warmup-schedule-name]');
+                    if (label) label.textContent = `${button.dataset.warmupName} · saved settings and seed list`;
+                    scheduleDialog.showModal();
+                    scheduleInput.focus();
+                });
+            });
+            scheduleDialog?.querySelectorAll('[data-warmup-schedule-close]').forEach(button => button.addEventListener('click', () => scheduleDialog.close()));
+            scheduleForm?.addEventListener('submit', () => {
+                const submitButton = scheduleForm.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.setAttribute('aria-busy', 'true');
+                }
+            });
+            document.querySelectorAll('[data-warmup-confirm]').forEach(form => {
+                form.addEventListener('submit', event => {
+                    if (!window.confirm(form.dataset.warmupConfirm || 'Continue with this Warmup action?')) event.preventDefault();
+                });
+            });
+
             const select = document.getElementById('warmup-analytics-select');
             const panel = document.getElementById('warmup-analytics-panel');
             const progress = document.getElementById('warmup-analytics-progress');

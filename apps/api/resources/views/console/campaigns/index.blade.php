@@ -29,6 +29,9 @@
                         <input id="campaign-disabled" name="disabled" value="1" type="checkbox" class="custom-control-input" @checked($showDisabled) onchange="this.form.submit()">
                         <label class="custom-control-label" for="campaign-disabled">SHOW DISABLED</label>
                     </div>
+                    <button id="campaign-analytics-visibility-toggle" class="campaign-analytics-visibility-toggle" type="button" aria-controls="campaign-intelligence" aria-expanded="true" data-storage-key="alphalink:campaign-analytics:{{ $workspace->getKey() }}">
+                        <i class="fas fa-chart-bar" aria-hidden="true"></i><span>Hide analytics</span>
+                    </button>
                     @if ($isAdmin)
                         <div class="campaign-operator-filter" aria-label="Operator campaign filter">
                             <label class="custom-control custom-switch campaign-operator-toggle" for="campaign-operator-campaigns">
@@ -445,7 +448,7 @@
             <p class="text-muted small mb-0">Showing {{ $campaigns->firstItem() ?? 0 }} to {{ $campaigns->lastItem() ?? 0 }} of {{ $campaigns->total() }} campaigns in the selected date range.</p>
                 </main>
 
-                <aside class="campaign-intelligence" aria-label="Campaign intelligence">
+                <aside id="campaign-intelligence" class="campaign-intelligence" aria-label="Campaign intelligence">
                     <section class="campaign-intelligence-card campaign-analytics-card" data-campaign-analytics data-aggregate-url="{{ route('console.campaign-statistics.index', array_merge([$workspace->id], ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'register' => 1], $operatorCampaignViewQuery ?? [])) }}">
                         <header class="campaign-intelligence-heading">
                             <span class="campaign-intelligence-heading-icon" aria-hidden="true"><i class="fas fa-chart-bar"></i></span>
@@ -737,6 +740,10 @@
         .campaign-register-page .custom-control-label { color: var(--co-muted); font-size: 9px; font-weight: 750; letter-spacing: .06em; white-space: nowrap; }
         .campaign-register-page .custom-control-label::before { border-color: var(--co-border-strong); background: var(--co-surface-muted); box-shadow: none; }
         .campaign-register-page .custom-control-input:checked ~ .custom-control-label::before { border-color: var(--co-purple); background-color: var(--co-purple); }
+        .campaign-analytics-visibility-toggle { display: inline-flex; align-items: center; gap: 7px; min-height: 33px; padding: 0 10px; border: 1px solid var(--co-border-strong); border-radius: 9px; color: var(--co-purple); background: var(--co-surface); font-size: 9px; font-weight: 750; white-space: nowrap; }
+        .campaign-analytics-visibility-toggle:hover { border-color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 5%, var(--co-surface)); }
+        .campaign-workspace-grid.is-analytics-hidden { grid-template-columns: minmax(0, 1fr); }
+        .campaign-intelligence[hidden] { display: none !important; }
         .campaign-register-page .btn-block-option { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--co-border); border-radius: 10px; color: var(--co-muted); background: var(--co-surface); }
         .campaign-register-page .btn-block-option:hover { border-color: var(--co-purple); color: var(--co-purple); }
         body.command-os-shell .campaign-register-page > .block-content { padding: 16px 18px 18px; }
@@ -1393,6 +1400,35 @@
     <script src="{{ asset('console-assets/campaign-clone-modal.js') }}?v={{ substr(sha1_file(public_path('console-assets/campaign-clone-modal.js')), 0, 12) }}" defer></script>
     <script>
         (() => {
+            const analyticsGrid = document.querySelector('.campaign-workspace-grid');
+            const analyticsAside = document.getElementById('campaign-intelligence');
+            const analyticsVisibilityToggle = document.getElementById('campaign-analytics-visibility-toggle');
+            if (analyticsGrid && analyticsAside && analyticsVisibilityToggle) {
+                const storageKey = analyticsVisibilityToggle.dataset.storageKey;
+                let analyticsVisible = true;
+                try {
+                    const storedValue = window.localStorage.getItem(storageKey);
+                    if (storedValue === 'hidden') analyticsVisible = false;
+                } catch (_) {
+                    // The control remains available when browser storage is disabled.
+                }
+                const updateAnalyticsVisibility = visible => {
+                    analyticsVisible = visible;
+                    analyticsAside.hidden = !visible;
+                    analyticsGrid.classList.toggle('is-analytics-hidden', !visible);
+                    analyticsVisibilityToggle.setAttribute('aria-expanded', String(visible));
+                    analyticsVisibilityToggle.querySelector('span').textContent = visible ? 'Hide analytics' : 'Show analytics';
+                    analyticsVisibilityToggle.querySelector('i').className = `fas ${visible ? 'fa-chart-bar' : 'fa-chart-line'}`;
+                    try {
+                        window.localStorage.setItem(storageKey, visible ? 'visible' : 'hidden');
+                    } catch (_) {
+                        // The current page still reflects the user's selection.
+                    }
+                };
+                updateAnalyticsVisibility(analyticsVisible);
+                analyticsVisibilityToggle.addEventListener('click', () => updateAnalyticsVisibility(!analyticsVisible));
+            }
+
             const statusDialog = document.getElementById('campaign-status-dialog');
             const statusForm = document.getElementById('campaign-status-form');
             const statusConfirm = document.getElementById('campaign-status-confirm');

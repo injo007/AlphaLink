@@ -3855,6 +3855,9 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             'email' => 'private-recipient@example.test',
         ])->assertCreated()->assertJsonPath('data.email', 'private-recipient@example.test');
         $id = $response->json('data.id');
+        $this->postJson(route('console.campaign-test-addresses.store', $workspace->getKey()), [
+            'email' => 'PRIVATE-RECIPIENT@example.test',
+        ])->assertOk()->assertJsonPath('data.id', $id)->assertJsonPath('data.email', 'private-recipient@example.test');
         $stored = DB::table('workspace_campaign_test_addresses')->where('id', $id)->sole();
         $this->assertNotSame('private-recipient@example.test', $stored->email);
         $this->get(route('clean.console.campaigns.create'))->assertOk()->assertSee('private-recipient@example.test');

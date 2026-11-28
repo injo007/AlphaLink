@@ -205,8 +205,21 @@
                                     <div class="campaign-register-row-actions warmup-register-row-actions">
                                         <button class="campaign-register-icon-action" type="button" data-warmup-analytics-trigger="{{ $draft->id }}" aria-controls="warmup-analytics-panel" title="View Warmup analytics" aria-label="View analytics for {{ $draft->name }}"><i class="fas fa-chart-line" aria-hidden="true"></i></button>
                                         <a class="campaign-register-icon-action" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Edit Warmup" aria-label="Edit Warmup"><i class="fas fa-edit" aria-hidden="true"></i></a>
-                                        <a class="campaign-register-icon-action warmup-action-test" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Open Warmup composer to test" aria-label="Test Warmup"><i class="far fa-paper-plane" aria-hidden="true"></i></a>
+                                        <a class="campaign-register-icon-action warmup-action-test" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Open Warmup composer to test" aria-label="Test Warmup"><i class="fas fa-paper-plane" aria-hidden="true"></i></a>
                                         @if ($sendRun && in_array($sendRun->state, ['planned', 'running'], true))
+                                            <form method="post" action="{{ route('console.warmups.send-pause', [$workspace->id, $draft->id, $sendRun->id]) }}" class="d-inline">
+                                                @csrf
+                                                <button class="campaign-register-icon-action" type="submit" title="Pause Warmup send" aria-label="Pause Warmup send"><i class="fas fa-pause" aria-hidden="true"></i></button>
+                                            </form>
+                                            <form method="post" action="{{ route('console.warmups.send-stop', [$workspace->id, $draft->id, $sendRun->id]) }}" class="d-inline">
+                                                @csrf
+                                                <button class="campaign-register-icon-action campaign-register-icon-action-danger" type="submit" title="Stop Warmup send" aria-label="Stop Warmup send"><i class="fas fa-stop" aria-hidden="true"></i></button>
+                                            </form>
+                                        @elseif ($sendRun && $sendRun->state === 'paused')
+                                            <form method="post" action="{{ route('console.warmups.send-resume', [$workspace->id, $draft->id, $sendRun->id]) }}" class="d-inline">
+                                                @csrf
+                                                <button class="campaign-register-icon-action campaign-register-icon-action-success" type="submit" title="Resume Warmup send" aria-label="Resume Warmup send"><i class="fas fa-play" aria-hidden="true"></i></button>
+                                            </form>
                                             <form method="post" action="{{ route('console.warmups.send-stop', [$workspace->id, $draft->id, $sendRun->id]) }}" class="d-inline">
                                                 @csrf
                                                 <button class="campaign-register-icon-action campaign-register-icon-action-danger" type="submit" title="Stop Warmup send" aria-label="Stop Warmup send"><i class="fas fa-stop" aria-hidden="true"></i></button>
@@ -385,7 +398,7 @@
         .warmup-register-table th:nth-child(10), .warmup-register-table td:nth-child(10) { width: 105px; }
         .warmup-register-table th:nth-child(11), .warmup-register-table td:nth-child(11) { width: 180px; }
         .warmup-register-table th:nth-child(12), .warmup-register-table td:nth-child(12) { width: 75px; }
-        .warmup-register-table th:nth-child(13), .warmup-register-table td:nth-child(13) { width: 180px; }
+        .warmup-register-table th:nth-child(13), .warmup-register-table td:nth-child(13) { width: 250px; }
         .warmup-register-table th { position: sticky; top: 0; z-index: 2; padding: 11px 9px; border-top: 0; border-bottom: 1px solid var(--co-border); color: var(--co-muted); background: var(--co-surface-muted); font-size: 8px; font-weight: 800; letter-spacing: .07em; white-space: nowrap; }
         .warmup-register-table thead th:first-child { left: 0; z-index: 3; box-shadow: 5px 0 10px color-mix(in srgb, var(--co-ink) 6%, transparent); }
         .warmup-register-table tbody th[scope="row"] { left: 0; position: sticky; z-index: 2; background: var(--co-surface); box-shadow: 5px 0 10px color-mix(in srgb, var(--co-ink) 6%, transparent); }
@@ -403,6 +416,8 @@
         .warmup-status-draft .status-indicator { background: #94a3b8; }
         .warmup-status-planned, .warmup-status-running { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.35); }
         .warmup-status-planned .status-indicator, .warmup-status-running .status-indicator { background: #8b5cf6; box-shadow: 0 0 6px #8b5cf6; animation: status-pulse 1.8s infinite; }
+        .warmup-status-paused { background: rgba(245, 158, 11, 0.14); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.35); }
+        .warmup-status-paused .status-indicator { background: #f59e0b; }
         .warmup-status-completed { background: rgba(16, 185, 129, 0.14); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); }
         .warmup-status-completed .status-indicator { background: #10b981; }
         .warmup-status-failed, .warmup-status-error { background: rgba(239, 68, 68, 0.14); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); }
@@ -418,8 +433,8 @@
         .warmup-register-table .warmup-register-progress small { display: block; color: var(--co-muted); font-size: 8px; line-height: 1.45; }
 
         /* Action Buttons */
-        .warmup-register-row-actions { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
-        .warmup-register-row-actions .campaign-register-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 28px; min-width: 28px; height: 28px; min-height: 28px; padding: 0; border: 1px solid color-mix(in srgb, var(--co-purple) 24%, var(--co-border)); border-radius: 8px; color: var(--co-purple); background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 13%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 9%, var(--co-surface))); box-shadow: 0 2px 6px color-mix(in srgb, var(--co-purple) 12%, transparent); text-decoration: none; transition: all 0.16s ease; font-size: 11px; }
+        .warmup-register-row-actions { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+        .warmup-register-row-actions .campaign-register-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 34px; min-width: 34px; height: 34px; min-height: 34px; padding: 0; border: 1px solid color-mix(in srgb, var(--co-purple) 24%, var(--co-border)); border-radius: 8px; color: var(--co-purple); background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 13%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 9%, var(--co-surface))); box-shadow: 0 2px 6px color-mix(in srgb, var(--co-purple) 12%, transparent); text-decoration: none; transition: all 0.16s ease; font-size: 14px; }
         .warmup-register-row-actions .campaign-register-icon-action:hover:not(:disabled) { border-color: var(--co-purple); color: var(--co-purple-bright); transform: translateY(-1px); box-shadow: 0 4px 10px color-mix(in srgb, var(--co-purple) 22%, transparent); }
         .warmup-register-row-actions .campaign-register-icon-action:disabled { opacity: 0.38; cursor: not-allowed; box-shadow: none; }
         .warmup-register-row-actions .warmup-action-test { color: #0284c7; background: linear-gradient(145deg, rgba(2, 132, 199, 0.12), rgba(2, 132, 199, 0.06)); border-color: rgba(2, 132, 199, 0.3); }

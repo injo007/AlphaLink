@@ -190,7 +190,7 @@ class CampaignDeliveryAttemptLifecycle
 
                 throw ValidationException::withMessages(['outcome' => 'A terminal delivery outcome cannot be replaced with a different result.']);
             }
-            if ($attempt->state !== 'started' || ! in_array($run->state, ['running', 'stopped'], true)) {
+            if ($attempt->state !== 'started' || ! in_array($run->state, ['running', 'stopped', 'paused'], true)) {
                 throw ValidationException::withMessages(['send_attempt' => 'Only a started attempt in an active send run can receive an outcome.']);
             }
 

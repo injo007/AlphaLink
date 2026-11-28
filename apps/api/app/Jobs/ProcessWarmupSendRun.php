@@ -64,11 +64,24 @@ class ProcessWarmupSendRun implements ShouldQueue
             )) {
                 return;
             }
-            unset($options['next_batch_at_ms'], $options['next_batch_at']);
-            $run->execution_options = $options;
-            $run->state = 'running';
-            $run->started_at ??= now();
-            $run->save();
+            $run = DB::transaction(function () use ($run, $options): ?WarmupSendRun {
+                $lockedRun = WarmupSendRun::query()->whereKey($run->getKey())->lockForUpdate()->firstOrFail();
+                if (! in_array($lockedRun->state, ['planned', 'running'], true)) {
+                    return null;
+                }
+
+                unset($options['next_batch_at_ms'], $options['next_batch_at']);
+                $lockedRun->execution_options = $options;
+                $lockedRun->state = 'running';
+                $lockedRun->started_at ??= now();
+                $lockedRun->save();
+
+                return $lockedRun;
+            }, attempts: 3);
+            if (! $run) {
+                return;
+            }
+            $options = (array) ($run->execution_options ?? []);
 
             $campaign = Campaign::query()
                 ->where('workspace_id', $run->workspace_id)

@@ -120,7 +120,7 @@ class PrepareWarmupSendRun
             $activeRun = WarmupSendRun::query()
                 ->where('workspace_id', $workspace->getKey())
                 ->where('campaign_id', $campaign->getKey())
-                ->whereIn('state', ['planned', 'running'])
+                ->whereIn('state', ['planned', 'running', 'paused'])
                 ->latest('created_at')
                 ->lockForUpdate()
                 ->first();

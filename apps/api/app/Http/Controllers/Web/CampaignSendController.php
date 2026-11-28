@@ -67,7 +67,7 @@ class CampaignSendController extends Controller
             $activeRun = CampaignSendRun::query()
                 ->where('workspace_id', $workspace->getKey())
                 ->where('campaign_id', $campaign->getKey())
-                ->whereIn('state', ['planned', 'running'])
+                ->whereIn('state', ['planned', 'running', 'paused'])
                 ->latest('created_at')
                 ->lockForUpdate()
                 ->first();
@@ -122,7 +122,9 @@ class CampaignSendController extends Controller
 
         return redirect()->route('console.campaigns.index', $workspace->getKey())
             ->with('status', $alreadyRunning
-                ? 'This campaign send is already queued or running. Its latest progress is shown below.'
+            ? ($run->state === 'paused'
+                ? 'This campaign send is paused. Resume it from the campaign register when ready.'
+                : 'This campaign send is already queued or running. Its latest progress is shown below.')
                 : 'Campaign send queued. Progress and SMTP outcomes will update in the campaign register.');
     }
 
@@ -141,7 +143,7 @@ class CampaignSendController extends Controller
             if ($sendRun->state === 'stopped') {
                 return false;
             }
-            abort_unless(in_array($sendRun->state, ['planned', 'running'], true), 409, 'This campaign send has already finished.');
+            abort_unless(in_array($sendRun->state, ['planned', 'running', 'paused'], true), 409, 'This campaign send has already finished.');
 
             $sendRun->state = 'stopped';
             $sendRun->completed_at = now();
@@ -168,6 +170,91 @@ class CampaignSendController extends Controller
             ->with('status', $stopped
                 ? 'Campaign send stopped. A message already in progress may finish; no new recipients will be started.'
                 : 'Campaign send was already stopped.');
+    }
+
+    public function pause(Request $request, string $workspace, string $campaign, string $run): RedirectResponse
+    {
+        $workspace = app(WorkspaceAccess::class)->find($request->user(), $workspace, ['owner', 'admin', 'operator']);
+        $paused = DB::transaction(function () use ($request, $workspace, $campaign, $run): bool {
+            $sendRun = CampaignSendRun::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('campaign_id', $campaign)
+                ->whereHas('campaign', fn ($query) => $query->where('created_by', $request->user()->getKey()))
+                ->whereKey($run)
+                ->lockForUpdate()
+                ->firstOrFail();
+            if ($sendRun->state === 'paused') {
+                return false;
+            }
+            abort_unless(in_array($sendRun->state, ['planned', 'running'], true), 409, 'This campaign send has already finished.');
+
+            $options = (array) ($sendRun->execution_options ?? []);
+            $options['operator_paused'] = true;
+            $sendRun->execution_options = $options;
+            $sendRun->state = 'paused';
+            $sendRun->save();
+            AuditEvent::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'actor_user_id' => $request->user()->getKey(),
+                'action' => 'campaign.send_paused',
+                'subject_type' => CampaignSendRun::class,
+                'subject_id' => $sendRun->getKey(),
+                'properties' => ['campaign_id' => (string) $sendRun->campaign_id],
+                'occurred_at' => now(),
+            ]);
+
+            return true;
+        }, attempts: 3);
+
+        return redirect()->route('console.campaigns.index', $workspace->getKey())
+            ->with('status', $paused
+                ? 'Campaign paused. A message already in progress may finish; no new recipients will be started.'
+                : 'Campaign send is already paused.');
+    }
+
+    public function resume(Request $request, string $workspace, string $campaign, string $run): RedirectResponse
+    {
+        $workspace = app(WorkspaceAccess::class)->find($request->user(), $workspace, ['owner', 'admin', 'operator']);
+        $sendRun = DB::transaction(function () use ($request, $workspace, $campaign, $run): ?CampaignSendRun {
+            $lockedRun = CampaignSendRun::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('campaign_id', $campaign)
+                ->whereHas('campaign', fn ($query) => $query->where('created_by', $request->user()->getKey()))
+                ->whereKey($run)
+                ->lockForUpdate()
+                ->firstOrFail();
+            if ($lockedRun->state !== 'paused') {
+                return null;
+            }
+
+            $options = (array) ($lockedRun->execution_options ?? []);
+            unset($options['operator_paused']);
+            $lockedRun->execution_options = $options;
+            $lockedRun->state = 'running';
+            $lockedRun->save();
+            AuditEvent::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'actor_user_id' => $request->user()->getKey(),
+                'action' => 'campaign.send_resumed',
+                'subject_type' => CampaignSendRun::class,
+                'subject_id' => $lockedRun->getKey(),
+                'properties' => ['campaign_id' => (string) $lockedRun->campaign_id],
+                'occurred_at' => now(),
+            ]);
+
+            return $lockedRun;
+        }, attempts: 3);
+
+        if ($sendRun) {
+            ProcessCampaignSendRun::dispatch((string) $sendRun->getKey())
+                ->onQueue('campaign-sends')
+                ->afterCommit();
+        }
+
+        return redirect()->route('console.campaigns.index', $workspace->getKey())
+            ->with('status', $sendRun
+                ? 'Campaign resumed. The existing recipient run will continue.'
+                : 'Campaign send is not paused.');
     }
 
     public function progress(Request $request, string $workspace, string $campaign, string $run): JsonResponse

@@ -41,7 +41,9 @@ class AppServiceProvider extends ServiceProvider
             $actor = (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
             $campaign = (string) ($request->route('campaign') ?? 'unknown');
 
-            return Limit::perMinute(10)->by('campaign-send:'.$actor.':'.$campaign);
+            // The send forms use server-side idempotency and active-run locks,
+            // so leave room for normal retries and pause/resume controls.
+            return Limit::perMinute(30)->by('campaign-send:'.$actor.':'.$campaign);
         });
 
         RateLimiter::for('campaign-draft-write', static function (Request $request): Limit {

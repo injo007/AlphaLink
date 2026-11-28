@@ -328,16 +328,32 @@ class WorkspaceMailerOperationsTest extends TestCase
             'created_by' => $owner->getKey(), 'created_at' => now(),
         ]);
 
-        $this->actingAs($owner)->put(route('console.warmups.update', [$workspace->getKey(), $campaign->getKey()]), [
+        $saveKey = (string) Str::uuid();
+        $savePayload = [
             'name' => 'Editable Warmup', 'return_path' => 'reply@example.test',
             'email_test_addresses_text' => 'qa@example.test',
             'header' => 'Subject: Latest edits', 'html_body' => '<p>Latest warmup body</p>',
             'send_type' => 'delayp', 'total_send' => 12, 'fraction_ip' => 3,
             'sleep_email' => 250, 'sleep_ip' => 900, 'seed_every' => 4, 'bounce_limit' => 6,
             'route_option' => 'ip', 'ip_type' => 'all', 'server_ids' => [], 'ip_ids' => [],
-            'idempotency_key' => (string) Str::uuid(), 'source_revision_id' => $revision->getKey(),
+            'idempotency_key' => $saveKey, 'source_revision_id' => $revision->getKey(),
             'submission_intent' => 'save', 'send_idempotency_key' => (string) Str::uuid(),
-        ])->assertRedirect(route('clean.console.warmups.index'));
+        ];
+        $this->actingAs($owner)->put(route('console.warmups.update', [$workspace->getKey(), $campaign->getKey()]), $savePayload)
+            ->assertRedirect(route('clean.console.warmups.index'));
+
+        // An identical browser retry carries the old source revision and the
+        // same idempotency key. It must acknowledge the saved revision, not 409.
+        $this->actingAs($owner)->put(route('console.warmups.update', [$workspace->getKey(), $campaign->getKey()]), $savePayload)
+            ->assertRedirect(route('clean.console.warmups.index'));
+
+        $staleEdit = $savePayload;
+        $staleEdit['idempotency_key'] = (string) Str::uuid();
+        $staleEdit['html_body'] = '<p>Preserved conflicting edit</p>';
+        $this->actingAs($owner)->from(route('console.warmups.edit', [$workspace->getKey(), $campaign->getKey()]))
+            ->put(route('console.warmups.update', [$workspace->getKey(), $campaign->getKey()]), $staleEdit)
+            ->assertRedirect(route('clean.console.warmups.edit', $campaign->getKey()))
+            ->assertSessionHasErrors('draft_conflict');
 
         $campaign->refresh()->load('latestRevision');
         $this->assertSame(2, $campaign->latestRevision->revision_number);
@@ -345,7 +361,48 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertSame('delayp', $campaign->latestRevision->payload['send_type']);
         $this->assertSame(250, $campaign->latestRevision->payload['sleep_email']);
         $this->assertSame(900, $campaign->latestRevision->payload['sleep_ip']);
+        $this->assertSame(2, $campaign->revisions()->count());
+        $this->assertSame('<p>Latest warmup body</p>', $campaign->latestRevision->payload['html_body']);
         $this->assertSame(0, $campaign->sendRuns()->count());
+    }
+
+    public function test_warmup_send_can_pause_and_resume_without_creating_another_run(): void
+    {
+        Queue::fake();
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $campaign = Campaign::query()->create([
+            'workspace_id' => $workspace->getKey(), 'created_by' => $owner->getKey(),
+            'name' => 'Pauseable Warmup', 'kind' => 'warmup', 'status' => 'draft', 'is_active' => true,
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->getKey(), 'revision_number' => 1,
+            'payload' => ['draft_type' => 'warmup', 'send_type' => 'delay', 'send_setup' => []],
+            'content_sha256' => hash('sha256', 'pauseable warmup content'),
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'pauseable warmup request'),
+            'created_by' => $owner->getKey(), 'created_at' => now(),
+        ]);
+        $run = WarmupSendRun::query()->create([
+            'workspace_id' => $workspace->getKey(), 'campaign_id' => $campaign->getKey(), 'revision_id' => $revision->getKey(),
+            'requested_by' => $owner->getKey(), 'send_type' => 'delay', 'state' => 'planned',
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'pause warmup run'),
+            'recipient_count' => 1, 'next_position' => 1, 'execution_options' => [],
+        ]);
+
+        $index = route('console.warmups.index', $workspace->getKey());
+        $pause = route('console.warmups.send-pause', [$workspace->getKey(), $campaign->getKey(), $run->getKey()]);
+        $resume = route('console.warmups.send-resume', [$workspace->getKey(), $campaign->getKey(), $run->getKey()]);
+        $this->actingAs($owner)->get($index)->assertOk()->assertSee('Pause Warmup send');
+        $this->actingAs($owner)->post($pause)->assertRedirect(route('clean.console.warmups.index'));
+        $this->assertSame('paused', $run->fresh()->state);
+        $this->actingAs($owner)->get($index)->assertOk()->assertSee('Resume Warmup send');
+        $this->actingAs($owner)->post($resume)->assertRedirect(route('clean.console.warmups.index'));
+        $this->assertSame('running', $run->fresh()->state);
+        $this->assertSame(1, WarmupSendRun::query()->where('campaign_id', $campaign->getKey())->count());
+        Queue::assertPushedOn('campaign-sends', ProcessWarmupSendRun::class, fn (ProcessWarmupSendRun $job): bool => $job->sendRunId === (string) $run->getKey());
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'warmup.send_paused')->count());
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'warmup.send_resumed')->count());
     }
 
     public function test_create_and_send_warmup_saves_latest_form_values_before_queueing(): void

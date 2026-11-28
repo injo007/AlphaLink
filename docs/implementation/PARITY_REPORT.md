@@ -2,6 +2,14 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## Warmup save/send recovery, resumable sends, and action controls — E-CAMP-178 (2026-11-28)
+
+Warmup identical retries are resolved before revision-conflict checks, preventing browser retries from showing 409 after a successful save. Conflicting stale content redirects back to the composer with submitted values/errors preserved. Warmup draft-write requests use the dedicated per-actor/workspace limiter. The composer disables repeat form submissions while saving and restores its state on browser history return. Create & Send persists the latest submitted Warmup values before dispatching its send run.
+
+Campaign and Warmup now expose Pause for active runs, Resume for paused runs, and Stop in both states. Pause and resume update the same ledger row under a lock; resume dispatches its existing worker instead of creating another send. Campaign operator pauses are protected from automatic failover restoration. In-flight delivery outcomes remain recordable after a pause. Action controls were enlarged and the Warmup action row wraps to remain visible on narrow layouts.
+
+Selected synthetic save/Create & Send/pause/resume tests pass in PHP 8.5.12 (4 tests / 57 assertions, with PHPUnit warning markers). Both adjacent feature files report four existing expectation failures (490 assertions, 41 warnings) concerning stale sidebar labels, a legacy Drop edit URL, Warmup seed-list validation, and Warmup analytics wording. Pint, Blade cache compilation, and `git diff --check` pass; strict UI audit reports 0 findings. No authenticated UI, production send, inbox delivery, or app login was executed. The product differences are recorded as BUG fixes; no historical DMS behavior is asserted, and send-mode parity remains UNKNOWN. Deployment health remains to be checked; keep this feature TESTING.
+
 ## Campaign/Warmup send-path reliability — E-CAMP-177 (2026-11-28)
 
 Campaign right-click/floating-menu Edit submits the current form through the normal revision endpoint. Unchanged Marketing content now returns to My Campaigns with a success message and does not append a duplicate revision. Campaign server refresh now replaces the eligible server catalog and route/IP choices together, preserves eligible selections, and reports HTTP failures; the shared Drop/Warmup composer refresh also reports errors and shows its busy state. Campaign draft/revision and Drop suppression actions use separate per-user/workspace rate-limit keys, so unrelated route traffic no longer exhausts the suppression-start bucket. The existing per-action limits remain in place.

@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\PrepareAndStartDropSend;
+use App\Jobs\ProcessWarmupSendRun;
 use App\Models\AudienceList;
+use App\Models\AuditEvent;
 use App\Models\Campaign;
 use App\Models\CampaignSendRun;
 use App\Models\ContactListMembership;
@@ -337,13 +339,88 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             ->whereHas('campaign', fn ($query) => $query->where('created_by', $request->user()->getKey()))
             ->whereKey($run)
             ->firstOrFail();
-        abort_unless(in_array($sendRun->state, ['planned', 'running'], true), 409, 'This Warmup send has already finished.');
+        abort_unless(in_array($sendRun->state, ['planned', 'running', 'paused'], true), 409, 'This Warmup send has already finished.');
         $sendRun->state = 'stopped';
         $sendRun->completed_at = now();
         $sendRun->save();
 
         return redirect()->route('console.warmups.index', $workspace->getKey())
             ->with('status', 'Warmup send stopped. A message already in progress may finish; no new recipients will be started.');
+    }
+
+    public function pauseWarmup(Request $request, string $workspace, string $campaign, string $run): RedirectResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $paused = DB::transaction(function () use ($request, $workspace, $campaign, $run): bool {
+            $sendRun = WarmupSendRun::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('campaign_id', $campaign)
+                ->whereHas('campaign', fn ($query) => $query->where('created_by', $request->user()->getKey()))
+                ->whereKey($run)
+                ->lockForUpdate()
+                ->firstOrFail();
+            if ($sendRun->state === 'paused') {
+                return false;
+            }
+            abort_unless(in_array($sendRun->state, ['planned', 'running'], true), 409, 'This Warmup send has already finished.');
+
+            $sendRun->state = 'paused';
+            $sendRun->save();
+            AuditEvent::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'actor_user_id' => $request->user()->getKey(),
+                'action' => 'warmup.send_paused',
+                'subject_type' => WarmupSendRun::class,
+                'subject_id' => $sendRun->getKey(),
+                'properties' => ['campaign_id' => (string) $sendRun->campaign_id],
+                'occurred_at' => now(),
+            ]);
+
+            return true;
+        }, attempts: 3);
+
+        return redirect()->route('console.warmups.index', $workspace->getKey())
+            ->with('status', $paused
+                ? 'Warmup paused. A message already in progress may finish; no new recipients will be started.'
+                : 'Warmup is already paused.');
+    }
+
+    public function resumeWarmup(Request $request, string $workspace, string $campaign, string $run): RedirectResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $sendRun = DB::transaction(function () use ($request, $workspace, $campaign, $run): ?WarmupSendRun {
+            $lockedRun = WarmupSendRun::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('campaign_id', $campaign)
+                ->whereHas('campaign', fn ($query) => $query->where('created_by', $request->user()->getKey()))
+                ->whereKey($run)
+                ->lockForUpdate()
+                ->firstOrFail();
+            if ($lockedRun->state !== 'paused') {
+                return null;
+            }
+
+            $lockedRun->state = 'running';
+            $lockedRun->save();
+            AuditEvent::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'actor_user_id' => $request->user()->getKey(),
+                'action' => 'warmup.send_resumed',
+                'subject_type' => WarmupSendRun::class,
+                'subject_id' => $lockedRun->getKey(),
+                'properties' => ['campaign_id' => (string) $lockedRun->campaign_id],
+                'occurred_at' => now(),
+            ]);
+
+            return $lockedRun;
+        }, attempts: 3);
+
+        if ($sendRun) {
+            ProcessWarmupSendRun::dispatch((string) $sendRun->getKey())->onQueue('campaign-sends')->afterCommit();
+        }
+
+        return redirect()->route('console.warmups.index', $workspace->getKey())
+            ->with('status', $sendRun ? 'Warmup resumed. The existing run will continue with its remaining recipients.' : 'Warmup is not paused.');
     }
 
     public function warmupStatistics(Request $request, string $workspace): View
@@ -891,7 +968,6 @@ class WorkspaceMailerOperationsConsoleController extends Controller
                 ->firstOrFail();
             abort_unless(in_array($lockedDraft->status, ['draft', 'snapshot_failed'], true) && $lockedDraft->is_active, 409, 'Only active drafts can be edited.');
             $latest = $lockedDraft->revisions()->lockForUpdate()->first();
-            abort_unless((string) ($latest?->getKey() ?? '') === (string) $data['source_revision_id'], 409, 'This draft changed while you were editing it. Reload the latest version before saving.');
             $existingRevision = $lockedDraft->revisions()->where('idempotency_key', $data['idempotency_key'])->first();
             if ($existingRevision) {
                 abort_unless(hash_equals($existingRevision->request_fingerprint, $contentHash), 409, 'This save key was already used for different draft content.');
@@ -903,6 +979,11 @@ class WorkspaceMailerOperationsConsoleController extends Controller
                 $status = 'Draft is unchanged; nothing new was saved.';
 
                 return;
+            }
+            if ((string) ($latest?->getKey() ?? '') !== (string) $data['source_revision_id']) {
+                throw ValidationException::withMessages([
+                    'draft_conflict' => 'A newer Warmup revision was saved while this form was open. Your form values are preserved below; review them and save again to create the next revision.',
+                ]);
             }
 
             $lockedDraft->name = trim($data['name']);

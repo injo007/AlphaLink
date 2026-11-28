@@ -285,6 +285,32 @@ class CampaignSendExecutionLedgerTest extends TestCase
         ]))->assertOk()->assertJsonPath('state', 'stopped');
     }
 
+    public function test_campaign_send_can_pause_and_resume_the_same_run(): void
+    {
+        Queue::fake();
+        $fixture = $this->sendFixture(recipientCount: 2);
+        $fixture['workspace']->users()->attach($fixture['owner']->getKey(), ['role' => 'owner']);
+        $run = app(PrepareCampaignSendRun::class)->create(
+            $fixture['campaign'], $fixture['revision'], $fixture['snapshot'], $fixture['owner'], (string) Str::uuid(),
+        );
+
+        $pause = route('console.campaigns.send-pause', [$fixture['workspace']->getKey(), $fixture['campaign']->getKey(), $run->getKey()]);
+        $resume = route('console.campaigns.send-resume', [$fixture['workspace']->getKey(), $fixture['campaign']->getKey(), $run->getKey()]);
+        $this->actingAs($fixture['owner'])->post($pause)->assertRedirect(route('console.mailer.campaigns'));
+        $this->assertSame('paused', $run->fresh()->state);
+        $this->assertTrue((bool) data_get($run->fresh()->execution_options, 'operator_paused'));
+        Queue::assertNothingPushed();
+
+        $this->actingAs($fixture['owner'])->post($resume)->assertRedirect(route('console.mailer.campaigns'));
+        $run->refresh();
+        $this->assertSame('running', $run->state);
+        $this->assertFalse((bool) data_get($run->execution_options, 'operator_paused', false));
+        $this->assertSame(1, CampaignSendRun::query()->where('campaign_id', $fixture['campaign']->getKey())->count());
+        Queue::assertPushed(ProcessCampaignSendRun::class, 1);
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'campaign.send_paused')->count());
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'campaign.send_resumed')->count());
+    }
+
     public function test_stopped_send_records_in_flight_outcome_and_blocks_another_recipient(): void
     {
         $fixture = $this->sendFixture(recipientCount: 2);

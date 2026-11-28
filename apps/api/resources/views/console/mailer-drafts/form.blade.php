@@ -1129,7 +1129,34 @@
     const form = document.getElementById('mailer-draft-form');
     if (!root || !form) return;
     const isDrop = root.dataset.kind === 'drop';
+    let submissionPending = false;
+    form.addEventListener('submit', event => {
+        if (submissionPending) {
+            event.preventDefault();
+            return;
+        }
+        submissionPending = true;
+        const submitter = event.submitter || document.getElementById('save-mailer-draft');
+        if (submitter) {
+            submitter.dataset.originalMarkup ||= submitter.innerHTML;
+            submitter.disabled = true;
+            submitter.setAttribute('aria-busy', 'true');
+            submitter.innerHTML = `<i class="fas fa-spinner fa-spin mr-1" aria-hidden="true"></i>${document.getElementById('warmup-submission-intent')?.value === 'create_send' ? 'SAVING & QUEUING…' : 'SAVING…'}`;
+        }
+    });
+    window.addEventListener('pageshow', () => {
+        submissionPending = false;
+        const submitter = document.getElementById('save-mailer-draft');
+        if (submitter) {
+            submitter.disabled = false;
+            submitter.removeAttribute('aria-busy');
+            if (submitter.dataset.originalMarkup) submitter.innerHTML = submitter.dataset.originalMarkup;
+        }
+    });
     const byId = id => document.getElementById(id);
+    form.addEventListener('invalid', () => {
+        if (byId('warmup-submission-intent')) byId('warmup-submission-intent').value = 'save';
+    }, true);
     const multiValues = element => Array.from(element?.selectedOptions || []).map(option => String(option.value));
     const pmtaAdminLink = document.querySelector('[data-pmta-admin-link]');
     const pmtaAdminBaseUrl = pmtaAdminLink?.getAttribute('href');

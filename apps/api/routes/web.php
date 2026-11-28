@@ -207,11 +207,13 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
         ->whereNumber('drop')->name('console.drops.visitors');
     Route::get('/app/workspaces/{workspace}/warmups', [WorkspaceMailerOperationsConsoleController::class, 'warmups'])->name('console.warmups.index');
     Route::get('/app/workspaces/{workspace}/warmups/create', [WorkspaceMailerOperationsConsoleController::class, 'createWarmup'])->name('console.warmups.create');
-    Route::post('/app/workspaces/{workspace}/warmups', [WorkspaceMailerOperationsConsoleController::class, 'storeWarmup'])->middleware('throttle:10,1')->name('console.warmups.store');
+    Route::post('/app/workspaces/{workspace}/warmups', [WorkspaceMailerOperationsConsoleController::class, 'storeWarmup'])->middleware('throttle:campaign-draft-write')->name('console.warmups.store');
     Route::get('/app/workspaces/{workspace}/warmups/statistics', [WorkspaceMailerOperationsConsoleController::class, 'warmupStatistics'])->name('console.warmups.statistics');
     Route::get('/app/workspaces/{workspace}/warmups/{campaign}/edit', [WorkspaceMailerOperationsConsoleController::class, 'editWarmup'])->whereUuid('campaign')->name('console.warmups.edit');
-    Route::put('/app/workspaces/{workspace}/warmups/{campaign}', [WorkspaceMailerOperationsConsoleController::class, 'updateWarmup'])->whereUuid('campaign')->middleware('throttle:10,1')->name('console.warmups.update');
+    Route::put('/app/workspaces/{workspace}/warmups/{campaign}', [WorkspaceMailerOperationsConsoleController::class, 'updateWarmup'])->whereUuid('campaign')->middleware('throttle:campaign-draft-write')->name('console.warmups.update');
     Route::post('/app/workspaces/{workspace}/warmups/{campaign}/send', [WorkspaceMailerOperationsConsoleController::class, 'sendWarmup'])->whereUuid('campaign')->middleware('throttle:campaign-send')->name('console.warmups.send');
+    Route::post('/app/workspaces/{workspace}/warmups/{campaign}/send-runs/{run}/pause', [WorkspaceMailerOperationsConsoleController::class, 'pauseWarmup'])->whereUuid('campaign')->whereUuid('run')->middleware('throttle:campaign-send')->name('console.warmups.send-pause');
+    Route::post('/app/workspaces/{workspace}/warmups/{campaign}/send-runs/{run}/resume', [WorkspaceMailerOperationsConsoleController::class, 'resumeWarmup'])->whereUuid('campaign')->whereUuid('run')->middleware('throttle:campaign-send')->name('console.warmups.send-resume');
     Route::post('/app/workspaces/{workspace}/warmups/{campaign}/send-runs/{run}/stop', [WorkspaceMailerOperationsConsoleController::class, 'stopWarmup'])->whereUuid('campaign')->whereUuid('run')->middleware('throttle:campaign-send')->name('console.warmups.send-stop');
     Route::get('/app/workspaces/{workspace}/warmups/seeds', [WorkspaceSeedListConsoleController::class, 'index'])->name('console.warmups.seeds.index');
     Route::get('/app/workspaces/{workspace}/warmups/seeds/create', [WorkspaceSeedListConsoleController::class, 'create'])->name('console.warmups.seeds.create');
@@ -334,6 +336,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/composer/options', [WorkspaceConsoleController::class, 'campaignSendOptions'])->name('console.campaigns.send-options');
     Route::post('/app/workspaces/{workspace}/campaigns', [WorkspaceConsoleController::class, 'createCampaignDraft'])->middleware('throttle:campaign-draft-write')->name('console.campaigns.store');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/send', [CampaignSendController::class, 'start'])->middleware('throttle:campaign-send')->name('console.campaigns.send');
+    Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/send-runs/{run}/pause', [CampaignSendController::class, 'pause'])->whereUuid(['workspace', 'campaign', 'run'])->middleware('throttle:campaign-send')->name('console.campaigns.send-pause');
+    Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/send-runs/{run}/resume', [CampaignSendController::class, 'resume'])->whereUuid(['workspace', 'campaign', 'run'])->middleware('throttle:campaign-send')->name('console.campaigns.send-resume');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/send-runs/{run}/stop', [CampaignSendController::class, 'stop'])->middleware('throttle:campaign-send')->name('console.campaigns.send-stop');
     Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/send-runs/{run}/progress', [CampaignSendController::class, 'progress'])->middleware('throttle:60,1')->name('console.campaigns.send-progress');
     Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/telemetry', [CampaignSendController::class, 'telemetry'])->middleware('throttle:60,1')->name('console.campaigns.telemetry');

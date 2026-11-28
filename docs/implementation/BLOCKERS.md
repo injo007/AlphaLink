@@ -2,6 +2,10 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-28 Warmup save/send recovery and resumable Campaign/Warmup runs — E-CAMP-178
+
+The Warmup editor now handles duplicate save retries idempotently and returns genuine stale-edit conflicts to the editor with input preserved. Create & Send persists submitted values before queueing. Warmup and Campaign have explicit pause/resume operations on the same send run; auto-failover does not clear an operator pause, and in-flight attempts can record outcomes. Action controls are larger and responsive. Focused synthetic tests pass (4 tests / 57 assertions); broad adjacent files report four unrelated existing expectation failures. Pint, Blade compilation, `git diff --check`, and strict UI audit (0 findings) pass. No app login or real send occurred. Deployment health remains to be checked. The feature remains TESTING; historic DMS parity is UNKNOWN.
+
 ## 2026-11-28 Campaign/Warmup send-path reliability — E-CAMP-177
 
 The reported Campaign refresh/save behavior, cross-route 429 collision, and 600 ms unit conversion are fixed, covered by focused synthetic tests, and deployed as `6e5a80b3de6359c16d673a32f38b9b847fda8278` on AlphaLink `baseheavy.shop`. The installer verified the local HTTPS health check and PHP-FPM, Horizon, suppression, and scheduler services. Authenticated UI verification remains unperformed because the app was not logged into, per the user's standing instruction; no real send or suppression job ran.

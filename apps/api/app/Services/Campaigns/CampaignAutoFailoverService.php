@@ -189,15 +189,18 @@ class CampaignAutoFailoverService
         $run->save();
 
         // 5. RESUME or HALT
-        if ($remainingCount > 0) {
+        $manualPause = (bool) data_get($run->fresh()->execution_options, 'operator_paused', false);
+        if ($remainingCount > 0 && ! $manualPause) {
             $run->update(['state' => 'running']);
             ProcessCampaignSendRun::dispatch($run->getKey());
             $action = 'resumed_with_remaining';
             $msg = "Domain {$domain} removed from rotation. Send resumed with {$remainingCount} healthy domains.";
         } else {
             $run->update(['state' => 'paused']);
-            $action = 'paused_all_disabled';
-            $msg = 'All configured domains have been deferred. Campaign send paused by Circuit Breaker.';
+            $action = $manualPause ? 'paused_by_operator' : 'paused_all_disabled';
+            $msg = $manualPause
+                ? 'A routing issue was recorded while the operator pause was active. The campaign remains paused.'
+                : 'All configured domains have been deferred. Campaign send paused by Circuit Breaker.';
         }
 
         return [
@@ -248,7 +251,7 @@ class CampaignAutoFailoverService
         $run->execution_options = $options;
         $run->save();
 
-        if ($run->state === 'paused') {
+        if ($run->state === 'paused' && ! (bool) data_get($run->execution_options, 'operator_paused', false)) {
             $run->update(['state' => 'running']);
             ProcessCampaignSendRun::dispatch($run->getKey());
         }

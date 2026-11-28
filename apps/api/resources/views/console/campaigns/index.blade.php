@@ -347,7 +347,7 @@
                                             <span class="small text-muted">Contact an operator to review.</span>
                                         @endif
                                     @elseif ($sendRun)
-                                        <span class="badge {{ in_array($sendRun->state, ['completed', 'running'], true) ? 'badge-primary' : ($sendRun->state === 'needs_review' ? 'badge-warning' : ($sendRun->state === 'failed' ? 'badge-danger' : 'badge-secondary')) }}" data-send-state>{{ strtoupper(str_replace('_', ' ', $sendRun->state)) }}</span>
+                                        <span class="badge {{ in_array($sendRun->state, ['completed', 'running'], true) ? 'badge-primary' : (in_array($sendRun->state, ['needs_review', 'paused'], true) ? 'badge-warning' : ($sendRun->state === 'failed' ? 'badge-danger' : 'badge-secondary')) }}" data-send-state>{{ strtoupper(str_replace('_', ' ', $sendRun->state)) }}</span>
                                         <div class="progress mt-1" style="height: .7rem" role="progressbar" aria-label="Campaign send progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $sendPercent }}" @if ($canManageVisibleCampaigns && in_array($sendRun->state, ['planned', 'running'], true)) data-campaign-send-progress data-progress-url="{{ route('console.campaigns.send-progress', [$workspace->id, $campaign->id, $sendRun->id]) }}" @endif>
                                             <div class="progress-bar {{ $sendRun->state === 'needs_review' ? 'bg-warning' : ($sendRun->state === 'failed' ? 'bg-danger' : '') }}" style="width: {{ $sendPercent }}%"></div>
                                         </div>
@@ -377,6 +377,27 @@
                                     @if ($campaign->is_restricted)
                                         <button type="button" class="btn btn-link btn-sm campaign-send-icon-action" disabled title="This campaign is restricted. Unrestrict it from Campaign Logs before starting a new send." aria-label="Campaign restricted; new sends are blocked"><i class="fas fa-ban text-warning" aria-hidden="true"></i></button>
                                         <div><span class="badge badge-warning">RESTRICTED</span></div>
+                                    @elseif ($sendRun && in_array($sendRun->state, ['planned', 'running'], true))
+                                        <div class="campaign-send-controls">
+                                            <form method="POST" action="{{ route('console.campaigns.send-pause', [$workspace->id, $campaign->id, $sendRun->id]) }}" class="d-inline">
+                                                @csrf
+                                                <button type="submit" class="btn btn-warning btn-sm campaign-send-pause" title="Pause sending {{ $campaign->name }}" aria-label="Pause sending {{ $campaign->name }}"><i class="fas fa-pause mr-1" aria-hidden="true"></i>PAUSE</button>
+                                            </form>
+                                            <button type="button" class="btn btn-danger btn-sm campaign-send-danger" data-campaign-stop-open data-campaign-name="{{ $campaign->name }}" data-stop-url="{{ route('console.campaigns.send-stop', [$workspace->id, $campaign->id, $sendRun->id]) }}" aria-label="Stop sending {{ $campaign->name }}"><i class="fas fa-stop mr-1" aria-hidden="true"></i>STOP</button>
+                                        </div>
+                                        <div><span class="badge badge-primary">{{ $sendRun->state === 'planned' ? 'QUEUED' : 'SENDING' }}</span></div>
+                                    @elseif ($sendRun && $sendRun->state === 'paused')
+                                        <div class="campaign-send-controls">
+                                            <form method="POST" action="{{ route('console.campaigns.send-resume', [$workspace->id, $campaign->id, $sendRun->id]) }}" class="d-inline">
+                                                @csrf
+                                                <button type="submit" class="btn btn-success btn-sm campaign-send-resume" title="Resume sending {{ $campaign->name }}" aria-label="Resume sending {{ $campaign->name }}"><i class="fas fa-play mr-1" aria-hidden="true"></i>RESUME</button>
+                                            </form>
+                                            <button type="button" class="btn btn-danger btn-sm campaign-send-danger" data-campaign-stop-open data-campaign-name="{{ $campaign->name }}" data-stop-url="{{ route('console.campaigns.send-stop', [$workspace->id, $campaign->id, $sendRun->id]) }}" aria-label="Stop sending {{ $campaign->name }}"><i class="fas fa-stop mr-1" aria-hidden="true"></i>STOP</button>
+                                        </div>
+                                        <div><span class="badge badge-warning">PAUSED</span></div>
+                                    @elseif ($sendRun && in_array($sendRun->state, ['completed', 'needs_review', 'stopped'], true))
+                                        <button type="button" class="btn btn-link btn-sm campaign-send-icon-action" disabled title="This revision already has a send record. Revise or clone the campaign before sending again." aria-label="Campaign revision already sent"><i class="fas fa-paper-plane text-muted" aria-hidden="true"></i></button>
+                                        <div><span class="badge badge-secondary">REVISION SENT</span></div>
                                     @elseif ($campaign->send_ready)
                                         <form method="POST" action="{{ route('console.campaigns.send', [$workspace->id, $campaign->id]) }}" class="d-inline" data-campaign-send-form>
                                             @csrf
@@ -384,12 +405,6 @@
                                             <button type="submit" class="btn btn-success btn-sm campaign-send-primary" title="Send the saved campaign through its selected PMTA routes" aria-label="Send {{ $campaign->name }}"><i class="fas fa-paper-plane mr-1" aria-hidden="true"></i>SEND</button>
                                         </form>
                                         <div><span class="badge badge-success">READY TO SEND</span></div>
-                                    @elseif ($sendRun && in_array($sendRun->state, ['planned', 'running'], true))
-                                        <button type="button" class="btn btn-danger btn-sm campaign-send-danger" data-campaign-stop-open data-campaign-name="{{ $campaign->name }}" data-stop-url="{{ route('console.campaigns.send-stop', [$workspace->id, $campaign->id, $sendRun->id]) }}" aria-label="Stop sending {{ $campaign->name }}"><i class="fas fa-stop mr-1" aria-hidden="true"></i>STOP</button>
-                                        <div><span class="badge badge-primary">{{ $sendRun->state === 'planned' ? 'QUEUED' : 'SENDING' }}</span></div>
-                                    @elseif ($sendRun && in_array($sendRun->state, ['completed', 'needs_review', 'stopped'], true))
-                                        <button type="button" class="btn btn-link btn-sm campaign-send-icon-action" disabled title="This revision already has a send record. Revise or clone the campaign before sending again." aria-label="Campaign revision already sent"><i class="fas fa-paper-plane text-muted" aria-hidden="true"></i></button>
-                                        <div><span class="badge badge-secondary">REVISION SENT</span></div>
                                     @elseif ($campaign->status === 'preparing_snapshot')
                                         <button type="button" class="btn btn-link btn-sm campaign-send-icon-action" disabled title="Suppression and recipient preparation are running." aria-label="Campaign preparation running"><i class="fas fa-spinner fa-spin text-primary" aria-hidden="true"></i></button>
                                         <div><span class="badge badge-primary">PREPARING</span></div>
@@ -805,8 +820,8 @@
         .campaign-register-table [data-campaign-column="campaign"] .small { display: block; max-width: 170px; margin-top: 3px; color: var(--co-muted) !important; font-size: 9px; line-height: 1.4; }
         .campaign-register-table [data-campaign-column="actions"] { min-width: 142px; }
         .campaign-register-row-actions { display: grid; grid-template-columns: repeat(4, 30px); gap: 4px; justify-content: start; width: max-content; max-width: 100%; }
-        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 30px; min-width: 30px; height: 30px; min-height: 30px; margin: 0; padding: 0; border: 1px solid color-mix(in srgb, var(--co-purple) 24%, var(--co-border)); border-radius: 9px; color: var(--co-purple); background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 13%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 9%, var(--co-surface))); box-shadow: 0 2px 6px color-mix(in srgb, var(--co-purple) 12%, transparent); cursor: pointer; text-decoration: none; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background .16s ease; }
-        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action i { color: currentColor; font-size: 12px; line-height: 1; }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 34px; min-width: 34px; height: 34px; min-height: 34px; margin: 0; padding: 0; border: 1px solid color-mix(in srgb, var(--co-purple) 24%, var(--co-border)); border-radius: 9px; color: var(--co-purple); background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 13%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 9%, var(--co-surface))); box-shadow: 0 2px 6px color-mix(in srgb, var(--co-purple) 12%, transparent); cursor: pointer; text-decoration: none; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background .16s ease; }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action i { color: currentColor; font-size: 14px; line-height: 1; }
         .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:hover:not(:disabled) { border-color: color-mix(in srgb, var(--co-purple) 54%, var(--co-border)); color: var(--co-purple-bright); background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 22%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 16%, var(--co-surface))); box-shadow: 0 4px 10px color-mix(in srgb, var(--co-purple) 20%, transparent); transform: translateY(-1px); }
         .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 32%, transparent); outline-offset: 2px; }
         .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:disabled { cursor: not-allowed; opacity: .48; box-shadow: none; }
@@ -1067,15 +1082,24 @@
         .campaign-register-page .campaign-send-cell .campaign-send-icon-action:hover:not(:disabled) { border-color: color-mix(in srgb, var(--co-purple) 55%, var(--co-border)); color: var(--co-purple-bright); background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 19%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 13%, var(--co-surface))); box-shadow: 0 4px 10px color-mix(in srgb, var(--co-purple) 19%, transparent); transform: translateY(-1px); }
         .campaign-register-page .campaign-send-cell .campaign-send-icon-action:focus-visible,
         .campaign-register-page .campaign-send-cell .campaign-send-primary:focus-visible,
-        .campaign-register-page .campaign-send-cell .campaign-send-danger:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 32%, transparent); outline-offset: 2px; }
+        .campaign-register-page .campaign-send-cell .campaign-send-danger:focus-visible,
+        .campaign-register-page .campaign-send-cell .campaign-send-pause:focus-visible,
+        .campaign-register-page .campaign-send-cell .campaign-send-resume:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 32%, transparent); outline-offset: 2px; }
         .campaign-register-page .campaign-send-cell .campaign-send-icon-action:disabled { cursor: not-allowed; opacity: .48; box-shadow: none; }
         .campaign-register-page .campaign-send-cell form { display: inline-flex; margin: 0 3px 4px 0; }
         .campaign-register-page .campaign-send-cell .campaign-send-primary,
-        .campaign-register-page .campaign-send-cell .campaign-send-danger { min-height: 30px; padding: 0 10px; border: 1px solid transparent; border-radius: 9px; color: #fff; font-size: 8px; font-weight: 850; letter-spacing: .04em; box-shadow: 0 4px 11px color-mix(in srgb, var(--co-purple) 21%, transparent); transition: transform .16s ease, box-shadow .16s ease; }
+        .campaign-register-page .campaign-send-cell .campaign-send-danger,
+        .campaign-register-page .campaign-send-cell .campaign-send-pause,
+        .campaign-register-page .campaign-send-cell .campaign-send-resume { min-height: 34px; padding: 0 10px; border: 1px solid transparent; border-radius: 9px; color: #fff; font-size: 10px; font-weight: 750; letter-spacing: .04em; box-shadow: 0 4px 11px color-mix(in srgb, var(--co-purple) 21%, transparent); transition: transform .16s ease, box-shadow .16s ease; }
         .campaign-register-page .campaign-send-cell .campaign-send-primary { border-color: color-mix(in srgb, var(--co-purple) 56%, transparent); background: linear-gradient(115deg, var(--co-purple-bright), var(--co-purple)); }
         .campaign-register-page .campaign-send-cell .campaign-send-danger { border-color: color-mix(in srgb, #db3d64 56%, transparent); background: linear-gradient(115deg, #f16b87, #c92f58); }
+        .campaign-register-page .campaign-send-cell .campaign-send-pause { border-color: color-mix(in srgb, #d58b09 56%, transparent); background: linear-gradient(115deg, #e9ad35, #c77b00); }
+        .campaign-register-page .campaign-send-cell .campaign-send-resume { border-color: color-mix(in srgb, #168459 56%, transparent); background: linear-gradient(115deg, #37b885, #147c59); }
         .campaign-register-page .campaign-send-cell .campaign-send-primary:hover,
-        .campaign-register-page .campaign-send-cell .campaign-send-danger:hover { color: #fff; box-shadow: 0 6px 14px color-mix(in srgb, var(--co-purple) 29%, transparent); transform: translateY(-1px); }
+        .campaign-register-page .campaign-send-cell .campaign-send-danger:hover,
+        .campaign-register-page .campaign-send-cell .campaign-send-pause:hover,
+        .campaign-register-page .campaign-send-cell .campaign-send-resume:hover { color: #fff; box-shadow: 0 6px 14px color-mix(in srgb, var(--co-purple) 29%, transparent); transform: translateY(-1px); }
+        .campaign-register-page .campaign-send-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
         .campaign-register-page .campaign-send-cell > div { margin-top: 2px; }
         @media (prefers-reduced-motion: reduce) {
             .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action { transition: none; }
@@ -1083,9 +1107,13 @@
             .campaign-register-page .campaign-send-cell .campaign-send-icon-action,
             .campaign-register-page .campaign-send-cell .campaign-send-primary,
             .campaign-register-page .campaign-send-cell .campaign-send-danger { transition: none; }
+            .campaign-register-page .campaign-send-cell .campaign-send-pause,
+            .campaign-register-page .campaign-send-cell .campaign-send-resume { transition: none; }
             .campaign-register-page .campaign-send-cell .campaign-send-icon-action:hover:not(:disabled),
             .campaign-register-page .campaign-send-cell .campaign-send-primary:hover,
             .campaign-register-page .campaign-send-cell .campaign-send-danger:hover { transform: none; }
+            .campaign-register-page .campaign-send-cell .campaign-send-pause:hover,
+            .campaign-register-page .campaign-send-cell .campaign-send-resume:hover { transform: none; }
         }
         .campaign-register-table [data-campaign-column="send"],
         .campaign-register-table [data-campaign-column="progress"] { min-width: 160px; }
